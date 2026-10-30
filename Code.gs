@@ -12,7 +12,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-10-30.1';
+var VERSION = '2026-10-30.2';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -133,6 +133,7 @@ function setup_() {
     } else {
       teams_().forEach(function (t) { codes.push(String(t.code)); });
     }
+    buildTeamViews_();
     var S = settings_();
     if (!S.courseName) setSetting_('courseName', 'AI프론티어');
     if (!S.openActs) setSetting_('openActs', 'N');
@@ -331,7 +332,8 @@ function saveTeams_(req) {
       }, ex._row);
     });
     log_(who, '팀 설정 저장', '', list.length + '팀');
-    _C = {};
+    _C = { ss: _C.ss };
+    buildTeamViews_(); // 팀 이름이 바뀌면 보기 탭 이름도 따라 바뀐다
     return { teams: teams_().map(function (t) { return pubTeam_(t, true); }) };
   });
 }
@@ -529,6 +531,62 @@ function teams_() {
 }
 
 function teamById_(id) { return find_(teams_(), String(id || '')); }
+
+/* ───────── 팀별 보기 탭 ───────── */
+
+// 팀마다 탭 하나(A-1팀 … C팀): 위에 예산·사용·잔액, 아래 왼쪽 활동 기록, 오른쪽 영수증.
+// 수식으로 원본 탭(활동기록·영수증)에서 자동으로 채워지므로 사람이 고칠 곳은 아니다.
+function buildTeamViews_() {
+  var ss = ss_();
+  var props = PropertiesService.getScriptProperties();
+  var core = Object.keys(TABS).map(function (k) { return TABS[k].name; });
+  var qa = "'" + TABS.act.name + "'!", qr = "'" + TABS.rcp.name + "'!", qt = "'" + TABS.team.name + "'!";
+  var a = function (k) { return colOf_('act', k); }, r = function (k) { return colOf_('rcp', k); };
+  teams_().forEach(function (t) {
+    var name = String(t.name || t.id).slice(0, 90);
+    if (core.indexOf(name) >= 0) name += ' 보기';
+    var sid = props.getProperty('VIEW_' + t.id), sh = null;
+    if (sid) sh = ss.getSheets().filter(function (x) { return String(x.getSheetId()) === sid; })[0] || null;
+    if (!sh) sh = ss.getSheetByName(name) || ss.insertSheet(name, ss.getSheets().length);
+    if (sh.getName() !== name && !ss.getSheetByName(name)) sh.setName(name);
+    props.setProperty('VIEW_' + t.id, String(sh.getSheetId()));
+    sh.clear();
+    var id = '"' + t.id + '"';
+    var used = 'SUMIFS(' + qr + '$' + r('amount') + ':$' + r('amount') + ', ' + qr + '$' + r('team') + ':$' + r('team') + ', ' + id
+      + ', ' + qr + '$' + r('deleted') + ':$' + r('deleted') + ', "<>Y"';
+    sh.getRange(1, 1).setValue(toCell_(t.name + ' (' + t.project + ') — 앱에 올린 기록이 자동으로 채워지는 보기 탭입니다. 여기서는 고치지 마세요.', 't')).setFontWeight('bold');
+    sh.getRange(2, 1, 1, 10).setValues([['예산', '', '사용', '', '잔액', '', '확인 완료', '', '자율스터디', '']]);
+    sh.getRange(2, 2).setFormula('=IFERROR(INDEX(' + qt + '$' + colOf_('team', 'budget') + ':$' + colOf_('team', 'budget') + ', MATCH(' + id + ', ' + qt + '$A:$A, 0)), 0)');
+    sh.getRange(2, 4).setFormula('=' + used + ')');
+    sh.getRange(2, 6).setFormula('=B2-D2');
+    sh.getRange(2, 8).setFormula('=' + used + ', ' + qr + '$' + r('status') + ':$' + r('status') + ', "확인")');
+    sh.getRange(2, 10).setFormula('=COUNTIFS(' + qa + '$' + a('team') + ':$' + a('team') + ', ' + id + ', ' + qa + '$' + a('type') + ':$' + a('type')
+      + ', "자율스터디", ' + qa + '$' + a('deleted') + ':$' + a('deleted') + ', "<>Y")');
+    [2, 4, 6, 8].forEach(function (c) { sh.getRange(2, c).setNumberFormat('#,##0"원"'); });
+    sh.getRange(2, 10).setNumberFormat('0"회"');
+    var actHdr = ['날짜', '유형', '시작', '종료', '시간', '장소', '참석자', '주제', '논의한 내용', '다음에 할 일', '작성자'];
+    var rcpHdr = ['사용일', '금액', '사용처', '분류', '산 것', '인원', '결제한 사람', '결제 수단', '메모', '상태', '교육팀 메모'];
+    var rc = actHdr.length + 2; // 활동 기록 오른쪽에 한 칸 띄우고 영수증
+    sh.getRange(4, 1).setValue('활동 기록').setFontWeight('bold');
+    sh.getRange(4, rc).setValue('영수증').setFontWeight('bold');
+    sh.getRange(5, 1, 1, actHdr.length).setValues([actHdr]).setFontWeight('bold').setBackground('#e8eef8');
+    sh.getRange(5, rc, 1, rcpHdr.length).setValues([rcpHdr]).setFontWeight('bold').setBackground('#e8eef8');
+    sh.getRange(6, 1).setFormula('=IFERROR(SORT(FILTER(HSTACK(' + qa + a('date') + '2:' + a('date') + ', ' + qa + a('type') + '2:' + a('type') + ', '
+      + qa + a('start') + '2:' + a('writer') + '), ' + qa + a('team') + '2:' + a('team') + '=' + id + ', ' + qa + a('deleted') + '2:' + a('deleted') + '<>"Y"), 1, TRUE), "")');
+    sh.getRange(6, rc).setFormula('=IFERROR(SORT(FILTER(HSTACK(' + qr + r('date') + '2:' + r('method') + ', ' + qr + r('memo') + '2:' + r('reviewNote') + '), '
+      + qr + r('team') + '2:' + r('team') + '=' + id + ', ' + qr + r('deleted') + '2:' + r('deleted') + '<>"Y"), 1, TRUE), "")');
+    sh.getRange(6, rc + 1, Math.max(sh.getMaxRows() - 5, 1), 1).setNumberFormat('#,##0');
+    sh.setFrozenRows(5);
+    sh.setColumnWidth(9, 320); sh.setColumnWidth(10, 220); sh.setColumnWidth(rc + 4, 200); sh.setColumnWidth(rc + 8, 200);
+  });
+}
+
+function colOf_(tab, key) {
+  var i = TABS[tab].cols.map(function (c) { return c[0]; }).indexOf(key) + 1, s = '';
+  if (i < 1) throw appErr_('server_error', '열 정의 없음: ' + tab + '.' + key);
+  while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+  return s;
+}
 
 /* ───────── 파일(드라이브) ───────── */
 
