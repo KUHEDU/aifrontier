@@ -212,7 +212,10 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 .team-pick{display:grid;gap:8px;margin-bottom:14px}
 .team-pick label{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;font-weight:650}
 .team-pick input{width:20px;height:20px;accent-color:var(--blue)}
-.team-pick small{color:var(--mute);font-weight:500;margin-left:auto}
+.team-pick .tp-body{display:flex;flex-direction:column;gap:1px;min-width:0}
+.team-pick .tp-line{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px}
+.team-pick .tp-mem{color:var(--slate);font-weight:500;font-size:15px}
+.team-pick small{color:var(--mute);font-weight:500;font-size:13px}
 .mark{display:inline-flex;align-items:center;gap:10px;font-weight:700;color:var(--navy);font-size:15px}
 
 /* 관리자 */
@@ -304,8 +307,11 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-10-30.1';
-const LS = { api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', dRcp: 'af.draft.rcp' };
+const APP_VERSION = '2026-10-30.2';
+// 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
+const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
+const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
+const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', dRcp: 'af.draft.rcp' };
 const ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 const CATS = ['식비·다과', '인쇄·자료', '도서', '소모품', '장소 대관', '기타'];
 const METHODS = ['개인카드', '법인카드', '현금', '기타'];
@@ -439,7 +445,8 @@ function apiFromLink(h) {
 }
 function teamLink(team) {
   const base = location.origin + location.pathname;
-  const m = /^https:\/\/script\.google\.com\/macros\/s\/([\w-]+)\/exec$/.exec(st.api);
+  if (HOME_API && st.api === HOME_API && SHORT_LINK.test(team.id + '-' + team.code)) return base + '#' + team.id + '-' + team.code;
+  const m =/^https:\/\/script\.google\.com\/macros\/s\/([\w-]+)\/exec$/.exec(st.api);
   return base + '#t=' + encodeURIComponent(team.id) + '&k=' + encodeURIComponent(team.code) + (m ? '&s=' + m[1] : '&api=' + encodeURIComponent(st.api));
 }
 
@@ -617,9 +624,11 @@ async function renderLogin(msg, adminFirst) {
     $('#login-box').innerHTML = `<div class="notice err" style="margin:0 0 12px;width:100%">${esc(e.message)}</div><button class="btn primary" data-act="retryLogin">다시 시도</button>`;
     return;
   } finally { busy(false); }
+  // 팀 이름 옆에 팀원(서버가 가운데 글자를 가려 보냄), 아래 줄에 프로젝트
+  const pick = (name, mem, sub) => `<span class="tp-body"><span class="tp-line"><span>${esc(name)}</span>${mem ? `<span class="tp-mem">${esc(mem)}</span>` : ''}</span><small>${esc(sub)}</small></span>`;
   $('#login-box').innerHTML = `<form id="login-form" autocomplete="off"><fieldset style="border:0;padding:0;margin:0"><legend class="sr">팀 선택</legend><div class="team-pick">
-      ${teams.map((t, i) => `<label><input type="radio" name="team" value="${esc(t.id)}" ${i === 0 && !adminFirst ? 'checked' : ''}>${esc(t.name)}<small>${esc(t.project)}</small></label>`).join('')}
-      <label><input type="radio" name="team" value="__admin" ${adminFirst ? 'checked' : ''}>교육팀(관리자)<small>관리자 코드</small></label></div></fieldset>
+      ${teams.map((t, i) => `<label><input type="radio" name="team" value="${esc(t.id)}" ${i === 0 && !adminFirst ? 'checked' : ''}>${pick(t.name, Array.isArray(t.members) ? t.members.join(', ') : '', t.project)}</label>`).join('')}
+      <label><input type="radio" name="team" value="__admin" ${adminFirst ? 'checked' : ''}>${pick('교육팀(관리자)', '', '관리자 코드')}</label></div></fieldset>
     <div class="field"><label for="login-code">코드</label><input id="login-code" class="in" inputmode="numeric" autocomplete="off" placeholder="팀 코드 6자리"></div>
     <button class="btn primary block" type="submit">들어가기</button></form>`;
   if (adminFirst) $('#login-code').placeholder = '관리자 코드';
@@ -842,7 +851,7 @@ function saveDraftSoon() {
     const f = st.form;
     if (!f || !f.isNew) return;
     const keys = f.kind === 'act' ? ['id', 'team', 'type', 'date', 'start', 'end', 'place', 'attendees', 'topic', 'content', 'next', 'writer']
-      : ['id', 'team', 'date', 'amount', 'store', 'category', 'item', 'people', 'payer', 'method', 'actId', 'memo', 'writer'];
+      : ['id', 'team', 'date', 'amount', 'store', 'category', 'item', 'payer', 'method', 'memo', 'writer'];
     const o = {}; keys.forEach((k) => { o[k] = f[k]; });
     lsSet(f.kind === 'act' ? LS.dAct : LS.dRcp, o);
   }, 400);
@@ -891,17 +900,16 @@ function openRcpForm(r, linkAct) {
   const draft = isNew ? lsGet(LS.dRcp, null) : null;
   const base = r || (draft && draft.team === (D().team || {}).id ? draft : null) || {};
   const me = lsGet(LS.me, '');
-  const acts = D().acts.filter((a) => a.team === (r ? r.team : (D().team || {}).id)).sort(byDateDesc);
   st.form = {
     kind: 'rcp', id: r ? r.id : (base.id || rid('r')), isNew: isNew, team: r ? r.team : (D().team || {}).id,
     date: base.date || (linkAct ? linkAct.date : todayStr()), amount: base.amount ? String(base.amount) : '', store: base.store || '',
-    category: base.category || '식비·다과', item: base.item || '', people: base.people ? String(base.people) : (linkAct && linkAct.attendees ? String(linkAct.attendees.length || '') : ''),
-    payer: base.payer || me, method: base.method || '', actId: base.actId || (linkAct ? linkAct.id : ''), memo: base.memo || '', writer: base.writer || me,
+    category: base.category || '식비·다과', item: base.item || '', payer: base.payer || '', method: base.method || '', memo: base.memo || '', writer: base.writer || me,
     status: r ? r.status : '', reviewNote: r ? r.reviewNote : '',
     files: r ? filesOf('R:' + r.id).map((x) => Object.assign({}, x, { isNew: false })) : [], remove: []
   };
   const f = st.form;
-  if (!f.actId && isNew) { const same = acts.find((a) => a.date === f.date); if (same) f.actId = same.id; }
+  const ms = members();
+  if (!f.payer && (!ms.length || ms.includes(me))) f.payer = me; // 결제한 사람은 팀원 버튼으로만 고르므로 팀원일 때만 미리 고름
   const amt = f.amount ? Number(f.amount).toLocaleString('ko-KR') : '';
   openSheet(`${sheetHead(isNew ? '영수증 올리기' : '영수증 수정')}
   <form class="sh-body" id="rcp-form" autocomplete="off" novalidate>
@@ -915,29 +923,22 @@ function openRcpForm(r, linkAct) {
     <div class="field"><label for="r-store">사용처<span class="req">*</span></label><input id="r-store" class="in" data-f="store" value="${esc(f.store)}" placeholder="가게 이름" maxlength="100"></div>
     <div class="field"><span class="lbl">분류</span><div class="chips">${CATS.map((x) => `<button type="button" class="chip" data-act="chip" data-k="category" data-v="${esc(x)}" aria-pressed="${f.category === x}">${esc(x)}</button>`).join('')}</div></div>
     <div class="field"><label for="r-item">산 것·쓴 곳</label><input id="r-item" class="in" data-f="item" value="${esc(f.item)}" placeholder="예) 스터디 간식, 자료 인쇄 50부" maxlength="500"></div>
-    <div class="field" id="people-field"><label for="r-people">인원</label><input id="r-people" class="in" inputmode="numeric" data-f="people" value="${esc(f.people)}" placeholder="식비는 먹은 사람 수"><p class="calc" id="per-head"></p></div>
     <div class="field"><span class="lbl">결제한 사람</span><div class="chips" id="payer-chips"></div>
-      <div class="inline-add"><input id="r-payer" class="in" data-f="payer" value="${esc(f.payer)}" placeholder="이름"></div></div>
+      ${ms.length ? '' : `<div class="inline-add"><input id="r-payer" class="in" data-f="payer" value="${esc(f.payer)}" placeholder="이름"></div>`}</div>
     <div class="field"><span class="lbl">결제 수단</span><div class="chips">${METHODS.map((x) => `<button type="button" class="chip" data-act="chip" data-k="method" data-v="${esc(x)}" aria-pressed="${f.method === x}">${esc(x)}</button>`).join('')}</div></div>
-    <div class="field"><label for="r-act">관련 활동</label><select id="r-act" class="in" data-f="actId"><option value="">선택 안 함</option>${acts.map((a) => `<option value="${esc(a.id)}" ${f.actId === a.id ? 'selected' : ''}>${fmtD(a.date)} ${esc(a.type)} ${esc(a.topic).slice(0, 40)}</option>`).join('')}</select><p class="hint">어느 스터디·회의에서 쓴 돈인지 고르면 정산할 때 참석자를 함께 확인할 수 있습니다.</p></div>
     <div class="field"><label for="r-memo">메모</label><textarea id="r-memo" class="in" data-f="memo" style="min-height:70px" placeholder="교육팀에 전할 말이 있으면 적어 주세요.">${esc(f.memo)}</textarea></div>
     <div class="field"><label for="r-writer">작성자</label><input id="r-writer" class="in" data-f="writer" list="writer-list2" value="${esc(f.writer)}" placeholder="이름"><datalist id="writer-list2">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
   </form>
   <div class="sh-foot"><p class="err-msg hidden" id="form-err"></p><button class="btn primary block" data-act="saveRcp" id="save-btn">${isNew ? '영수증 제출' : f.status === '보완요청' ? '고쳐서 다시 제출' : '수정 내용 저장'}</button></div>`, { full: true, label: '영수증', onClose: () => { st.form = null; } });
-  drawPayer(); drawPhotos(); updPerHead();
+  drawPayer(); drawPhotos();
 }
 function drawPayer() {
   const f = st.form, box = $('#payer-chips');
   if (!f || !box) return;
   const ms = members();
-  box.innerHTML = ms.map((n) => `<button type="button" class="chip" data-act="setPayer" data-v="${esc(n)}" aria-pressed="${f.payer === n}">${esc(n)}</button>`).join('');
-  box.classList.toggle('hidden', !ms.length);
-}
-function updPerHead() {
-  const f = st.form, el = $('#per-head');
-  if (!f || !el) return;
-  const a = Number(String(f.amount).replace(/\D/g, '')), p = Number(String(f.people).replace(/\D/g, ''));
-  el.textContent = a && p ? '1인당 ' + won(Math.round(a / p)) : '';
+  const list = ms.length && f.payer && !ms.includes(f.payer) ? ms.concat(f.payer) : ms; // 팀원 목록에 없는 예전 값도 보이게
+  box.innerHTML = list.map((n) => `<button type="button" class="chip" data-act="setPayer" data-v="${esc(n)}" aria-pressed="${f.payer === n}">${esc(n)}</button>`).join('');
+  box.classList.toggle('hidden', !list.length);
 }
 async function saveRcp() {
   const f = st.form;
@@ -956,7 +957,7 @@ async function saveRcp() {
   if (f.writer) lsSet(LS.me, f.writer);
   try {
     const r = await api('saveRcp', {
-      rcp: { id: f.id, team: f.team, date: f.date, amount: amount, store: f.store, category: f.category, item: f.item, people: f.people, payer: f.payer, method: f.method, actId: f.actId, memo: f.memo, writer: f.writer },
+      rcp: { id: f.id, team: f.team, date: f.date, amount: amount, store: f.store, category: f.category, item: f.item, payer: f.payer, method: f.method, memo: f.memo, writer: f.writer },
       newFiles: nf.map((x) => ({ id: x.id, mime: x.mime, name: x.name, data: x.data, thumb: x.thumb })), removeFiles: f.remove
     }, { timeout: nf.length ? 150000 : 60000 });
     nf.forEach((x) => { if (x.fullUrl) st.full.set(x.id, x.fullUrl); });
@@ -985,7 +986,6 @@ function openAct(id) {
   const a = D().acts.find((x) => x.id === id);
   if (!a) { toast('기록을 찾을 수 없습니다.'); return; }
   const mine = D().role === 'admin' || (D().team && a.team === D().team.id);
-  const rc = D().rcps.filter((r) => r.actId === a.id);
   openSheet(`${sheetHead('활동 기록')}<div class="sh-body">
     <p style="margin:0"><span class="tag ${a.type === '자율스터디' ? 'study' : ''}">${esc(a.type)}</span>${D().role === 'admin' || !mine ? `<span class="tag team">${esc(teamName(a.team))}</span>` : ''}</p>
     <h3 class="d-title">${esc(a.topic || '(주제 없음)')}</h3>
@@ -998,7 +998,6 @@ function openAct(id) {
     ${a.content ? `<div class="block"><h3>논의한 내용</h3><div class="txt">${esc(a.content)}</div></div>` : ''}
     ${a.next ? `<div class="block"><h3>다음에 할 일</h3><div class="txt">${esc(a.next)}</div></div>` : ''}
     ${filesOf('A:' + a.id).length ? `<div class="block"><h3>사진</h3>${photoGrid('A:' + a.id)}</div>` : ''}
-    ${rc.length ? `<div class="block"><h3>이 활동의 영수증 (${won(sum(rc.map((r) => r.amount)))})</h3><div class="list" style="margin:0">${rc.map((r) => rcpRow(r)).join('')}</div></div>` : ''}
     <p class="hint" style="margin-top:16px;color:var(--mute);font-size:12px">작성 ${esc(a.created || '')}${a.updated && a.updated !== a.created ? ', 수정 ' + esc(a.updated) : ''}</p>
   </div>
   ${mine ? `<div class="sh-foot"><div class="btn-row"><button class="btn danger" data-act="delAct" data-id="${esc(a.id)}">삭제</button><button class="btn primary" data-act="editAct" data-id="${esc(a.id)}">수정</button></div></div>` : ''}`, { label: '활동 기록' });
@@ -1007,9 +1006,7 @@ function openRcp(id) {
   const r = D().rcps.find((x) => x.id === id);
   if (!r) { toast('영수증을 찾을 수 없습니다.'); return; }
   const isAdmin = D().role === 'admin';
-  const act = r.actId ? D().acts.find((a) => a.id === r.actId) : null;
   const fs = filesOf('R:' + r.id);
-  const per = r.people ? Math.round(r.amount / r.people) : 0;
   const locked = r.status === '확인' && !isAdmin;
   const w = openSheet(`${sheetHead('영수증')}<div class="sh-body">
     ${isAdmin ? `<p style="margin:0 0 6px"><span class="tag team">${esc(teamName(r.team))}</span></p>` : ''}
@@ -1019,9 +1016,7 @@ function openRcp(id) {
     <div class="block" id="rcp-imgs">${fs.length ? fs.map((x) => `<div data-full="${esc(x.id)}" data-mime="${esc(x.mime)}"><div class="loading-img">사진 불러오는 중…</div></div>`).join('') : '<div class="notice" style="margin:0;width:100%">영수증 사진이 없습니다.</div>'}</div>
     <dl class="kv">
       <div><dt>산 것</dt><dd>${esc(r.item || '-')}</dd></div>
-      ${r.people ? `<div><dt>인원</dt><dd>${r.people}명 (1인당 ${won(per)})</dd></div>` : ''}
       <div><dt>결제</dt><dd>${esc([r.payer, r.method].filter(Boolean).join(', ') || '-')}</dd></div>
-      <div><dt>관련 활동</dt><dd>${act ? `<button class="btn ghost" style="height:auto;padding:0;text-align:left" data-act="openAct" data-id="${esc(act.id)}">${fmtD(act.date)} ${esc(act.topic)}</button>` : '-'}</dd></div>
       ${r.memo ? `<div><dt>메모</dt><dd>${esc(r.memo)}</dd></div>` : ''}
       <div><dt>작성자</dt><dd>${esc(r.writer || '-')}</dd></div>
     </dl>
@@ -1225,15 +1220,13 @@ function buildXlsx(sheets) {
 }
 function exportXlsx() {
   const d = D(), set = d.settings;
-  const actById = new Map(d.acts.map((a) => [a.id, a]));
   const teamOrder = new Map(d.teams.map((t, i) => [t.id, i]));
   const sortT = (a, b) => (teamOrder.get(a.team) - teamOrder.get(b.team)) || a.date.localeCompare(b.date);
   const sumRows = [['팀', '프로젝트', '예산', '사용', '잔액', '확인 완료 금액', '영수증 수', '확인 대기', '보완 요청', '활동 기록', '자율스터디 횟수', '활동 시간']];
   d.teams.forEach((t) => { const s = teamStats(t.id); sumRows.push([t.name, t.project, s.budget, s.spent, s.remain, s.okAmt, s.rcps.length, s.wait, s.fix, s.acts.length, s.study.length, Math.round(s.hours * 100) / 100]); });
-  const rcRows = [['팀', '사용일', '사용처', '분류', '산 것', '금액', '인원', '1인당', '결제한 사람', '결제 수단', '관련 활동', '상태', '교육팀 메모', '작성자', '제출 시각', '사진 수', '메모']];
+  const rcRows = [['팀', '사용일', '사용처', '분류', '산 것', '금액', '결제한 사람', '결제 수단', '상태', '교육팀 메모', '작성자', '제출 시각', '사진 수', '메모']];
   d.rcps.slice().sort(sortT).forEach((r) => {
-    const a = actById.get(r.actId);
-    rcRows.push([teamName(r.team), r.date, r.store, r.category, r.item, r.amount, r.people || '', r.people ? Math.round(r.amount / r.people) : '', r.payer, r.method, a ? a.date + ' ' + a.topic : '', STATUS_LABEL[r.status] || r.status, r.reviewNote, r.writer, r.created, filesOf('R:' + r.id).length, r.memo]);
+    rcRows.push([teamName(r.team), r.date, r.store, r.category, r.item, r.amount, r.payer, r.method, STATUS_LABEL[r.status] || r.status, r.reviewNote, r.writer, r.created, filesOf('R:' + r.id).length, r.memo]);
   });
   const acRows = [['팀', '날짜', '유형', '시작', '종료', '시간', '장소', '참석자', '참석 인원', '주제', '논의한 내용', '다음에 할 일', '작성자', '사진 수']];
   d.acts.slice().sort(sortT).forEach((a) => acRows.push([teamName(a.team), a.date, a.type, a.start, a.end, a.hours, a.place, (a.attendees || []).join(', '), (a.attendees || []).length, a.topic, a.content, a.next, a.writer, filesOf('A:' + a.id).length]));
@@ -1241,7 +1234,7 @@ function exportXlsx() {
   d.teams.forEach((t) => attendance(t.id).forEach((x) => atRows.push([t.name, x.name, x.count, Math.round(x.hours * 100) / 100, Math.min(x.count, set.studyGoal) * set.studyHours])));
   const blob = buildXlsx([
     { name: '팀별 요약', rows: sumRows, widths: [12, 16, 12, 12, 12, 14, 10, 10, 10, 10, 14, 10], money: [2, 3, 4, 5] },
-    { name: '영수증', rows: rcRows, widths: [10, 12, 18, 11, 22, 11, 7, 10, 11, 10, 26, 10, 22, 10, 18, 8, 22], money: [5, 7] },
+    { name: '영수증', rows: rcRows, widths: [10, 12, 18, 11, 22, 11, 11, 10, 10, 22, 10, 18, 8, 22], money: [5] },
     { name: '활동 기록', rows: acRows, widths: [10, 12, 10, 7, 7, 7, 16, 26, 9, 26, 50, 36, 10, 8] },
     { name: '자율스터디 참석', rows: atRows, widths: [10, 12, 14, 12, 30] }
   ]);
@@ -1266,9 +1259,9 @@ async function printTeam(id) {
     html += `<section style="break-after:page;page-break-after:always"><h1>${esc(d.settings.courseName)} ${esc(t.name)} 활동지원비 사용 내역</h1>
       <p class="p-meta">${esc(t.project)}, 예산 ${won(s.budget)}, 사용 ${won(s.spent)}, 잔액 ${won(s.remain)} (출력 ${todayStr()})</p>
       <table><thead><tr><th>#</th><th>사용일</th><th>사용처</th><th>분류</th><th>산 것</th><th class="r">금액</th><th>결제</th><th>상태</th></tr></thead><tbody>
-      ${rc.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.date)}</td><td>${esc(r.store)}</td><td>${esc(r.category)}</td><td>${esc(r.item)}${r.people ? ` (${r.people}명)` : ''}</td><td class="r">${won(r.amount)}</td><td>${esc([r.payer, r.method].filter(Boolean).join(', '))}</td><td>${STATUS_LABEL[r.status] || esc(r.status)}</td></tr>`).join('')}
+      ${rc.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.date)}</td><td>${esc(r.store)}</td><td>${esc(r.category)}</td><td>${esc(r.item)}</td><td class="r">${won(r.amount)}</td><td>${esc([r.payer, r.method].filter(Boolean).join(', '))}</td><td>${STATUS_LABEL[r.status] || esc(r.status)}</td></tr>`).join('')}
       <tr><td colspan="5"><b>합계</b></td><td class="r"><b>${won(s.spent)}</b></td><td colspan="2"></td></tr></tbody></table>
-      ${rc.map((r, i) => `<div class="p-rcp"><h2>${i + 1}. ${esc(r.date)} ${esc(r.store)} ${won(r.amount)}</h2><p>${esc(r.category)} ${esc(r.item)}${r.actId && d.acts.find((a) => a.id === r.actId) ? ', 관련 활동: ' + esc(d.acts.find((a) => a.id === r.actId).topic) : ''}</p>
+      ${rc.map((r, i) => `<div class="p-rcp"><h2>${i + 1}. ${esc(r.date)} ${esc(r.store)} ${won(r.amount)}</h2><p>${esc(r.category)} ${esc(r.item)}</p>
         ${filesOf('R:' + r.id).length ? `<div class="p-imgs">${filesOf('R:' + r.id).map((f) => `<div data-pfull="${esc(f.id)}" data-mime="${esc(f.mime)}"><p>(사진 불러오는 중)</p></div>`).join('')}</div>` : '<p>(사진 없음)</p>'}</div>`).join('')}</section>`;
   });
   p.innerHTML = `<div class="p-bar"><span id="p-prog">사진을 불러오는 중입니다…</span><button class="btn" data-act="doPrint" id="p-go" disabled>인쇄</button><button class="btn" data-act="closePrint">닫기</button></div><div class="p-doc">${html || '<p>영수증이 없습니다.</p>'}</div>`;
@@ -1379,7 +1372,7 @@ const ACT = {
     inp.value.split(',').map((s) => s.trim()).filter(Boolean).forEach((n) => { if (!f.attendees.includes(n)) f.attendees.push(n); });
     inp.value = ''; drawAtt(); saveDraftSoon();
   },
-  setPayer: (el) => { const f = st.form; if (!f) return; f.payer = el.dataset.v; $('#r-payer').value = f.payer; drawPayer(); saveDraftSoon(); },
+  setPayer: (el) => { const f = st.form; if (!f) return; f.payer = f.payer === el.dataset.v ? '' : el.dataset.v; drawPayer(); saveDraftSoon(); },
   rmPhoto: (el) => {
     const f = st.form; if (!f) return;
     const p = f.files.splice(Number(el.dataset.i), 1)[0];
@@ -1474,9 +1467,6 @@ document.addEventListener('input', (e) => {
     const digits = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 9);
     f.amount = digits;
     el.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
-    updPerHead();
-  } else if (k === 'people') {
-    f.people = el.value.replace(/\D/g, '').slice(0, 3); el.value = f.people; updPerHead();
   } else {
     f[k] = el.value;
     if (k === 'start' || k === 'end') updHours();
@@ -1498,14 +1488,16 @@ $('#pick-file').addEventListener('change', onPicked);
 
 /* ───────── 시작 ───────── */
 function boot() {
-  st.api = lsGet(LS.api, '');
+  st.api = lsGet(LS.api, '') || HOME_API;
   st.auth = lsGet(LS.auth, null);
   const h = new URLSearchParams(location.hash.slice(1));
+  const short = SHORT_LINK.exec(location.hash.slice(1)); // 짧은 팀 링크 #A1-123456
   let mode = '';
   if (location.hash.length > 1) {
     const api = apiFromLink(h);
     if (api) { st.api = api; lsSet(LS.api, api); }
-    if (h.get('t') && h.get('k')) { st.auth = { team: h.get('t'), code: h.get('k') }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
+    if (short) { st.auth = { team: short[1], code: short[2] }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
+    else if (h.get('t') && h.get('k')) { st.auth = { team: h.get('t'), code: h.get('k') }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
     if (h.has('admin')) mode = 'admin';
     if (h.has('setup')) mode = 'setup';
     history.replaceState(null, '', location.pathname + location.search); // 코드가 주소창에 남지 않게
@@ -1520,7 +1512,7 @@ function boot() {
 }
 window.addEventListener('hashchange', () => {
   // 같은 탭에서 다른 팀 링크를 누른 경우(주소 뒤 # 만 바뀜)
-  if (!/[#&](t|k|s|api)=|[#&](admin|setup)(&|$)/.test(location.hash)) return;
+  if (!/[#&](t|k|s|api)=|[#&](admin|setup)(&|$)/.test(location.hash) && !SHORT_LINK.test(location.hash.slice(1))) return;
   while (sheets.length) popSheet();
   st.data = null;
   boot();

@@ -12,7 +12,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-10-30.2';
+var VERSION = '2026-10-30.3';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -112,7 +112,8 @@ function ping_() {
   var res = { ready: ready };
   if (ready) {
     res.courseName = settings_().courseName;
-    res.teams = teams_().map(function (t) { return { id: t.id, name: t.name, project: t.project }; });
+    // 로그인 화면은 코드 없이도 보이므로 팀원 이름은 가운데 글자를 가려서 보낸다(윤○진). 코드는 보내지 않음
+    res.teams = teams_().map(function (t) { return { id: t.id, name: t.name, project: t.project, members: splitList_(t.members).map(maskName_) }; });
   }
   return res;
 }
@@ -565,7 +566,7 @@ function buildTeamViews_() {
     [2, 4, 6, 8].forEach(function (c) { sh.getRange(2, c).setNumberFormat('#,##0"원"'); });
     sh.getRange(2, 10).setNumberFormat('0"회"');
     var actHdr = ['날짜', '유형', '시작', '종료', '시간', '장소', '참석자', '주제', '논의한 내용', '다음에 할 일', '작성자'];
-    var rcpHdr = ['사용일', '금액', '사용처', '분류', '산 것', '인원', '결제한 사람', '결제 수단', '메모', '상태', '교육팀 메모'];
+    var rcpHdr = ['사용일', '금액', '사용처', '분류', '산 것', '결제한 사람', '결제 수단', '메모', '상태', '교육팀 메모'];
     var rc = actHdr.length + 2; // 활동 기록 오른쪽에 한 칸 띄우고 영수증
     sh.getRange(4, 1).setValue('활동 기록').setFontWeight('bold');
     sh.getRange(4, rc).setValue('영수증').setFontWeight('bold');
@@ -573,11 +574,11 @@ function buildTeamViews_() {
     sh.getRange(5, rc, 1, rcpHdr.length).setValues([rcpHdr]).setFontWeight('bold').setBackground('#e8eef8');
     sh.getRange(6, 1).setFormula('=IFERROR(SORT(FILTER(HSTACK(' + qa + a('date') + '2:' + a('date') + ', ' + qa + a('type') + '2:' + a('type') + ', '
       + qa + a('start') + '2:' + a('writer') + '), ' + qa + a('team') + '2:' + a('team') + '=' + id + ', ' + qa + a('deleted') + '2:' + a('deleted') + '<>"Y"), 1, TRUE), "")');
-    sh.getRange(6, rc).setFormula('=IFERROR(SORT(FILTER(HSTACK(' + qr + r('date') + '2:' + r('method') + ', ' + qr + r('memo') + '2:' + r('reviewNote') + '), '
+    sh.getRange(6, rc).setFormula('=IFERROR(SORT(FILTER(HSTACK(' + qr + r('date') + '2:' + r('item') + ', ' + qr + r('payer') + '2:' + r('method') + ', ' + qr + r('memo') + '2:' + r('reviewNote') + '), '
       + qr + r('team') + '2:' + r('team') + '=' + id + ', ' + qr + r('deleted') + '2:' + r('deleted') + '<>"Y"), 1, TRUE), "")');
     sh.getRange(6, rc + 1, Math.max(sh.getMaxRows() - 5, 1), 1).setNumberFormat('#,##0');
     sh.setFrozenRows(5);
-    sh.setColumnWidth(9, 320); sh.setColumnWidth(10, 220); sh.setColumnWidth(rc + 4, 200); sh.setColumnWidth(rc + 8, 200);
+    sh.setColumnWidth(9, 320); sh.setColumnWidth(10, 220); sh.setColumnWidth(rc + 4, 200); sh.setColumnWidth(rc + 7, 200); sh.setColumnWidth(rc + 8, 100); sh.setColumnWidth(rc + 9, 200);
   });
 }
 
@@ -719,6 +720,13 @@ function find_(rows, id) { for (var i = 0; i < rows.length; i++) if (String(rows
 function merge_(a, b) { var o = {}, k; for (k in (a || {})) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 function now_() { return Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss'); }
 function round2_(n) { return Math.round(n * 100) / 100; }
+
+function maskName_(n) {
+  var s = String(n || '').trim();
+  if (s.length <= 1) return s;
+  if (s.length === 2) return s.charAt(0) + '○';
+  return s.charAt(0) + new Array(s.length - 1).join('○') + s.charAt(s.length - 1);
+}
 
 function str_(v, max) {
   var s = v === null || v === undefined ? '' : String(v);
