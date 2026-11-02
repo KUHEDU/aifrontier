@@ -6,6 +6,8 @@
  *  2) 메뉴 [확장 프로그램 → Apps Script] → 기본 코드를 모두 지우고 이 파일 전체를 붙여 넣고 저장.
  *  3) [배포 → 새 배포 → 유형: 웹 앱] → 실행: 나 / 액세스 권한이 있는 사용자: 모든 사용자 → 배포 → 권한 허용.
  *  4) 나온 웹 앱 URL(…/exec)을 앱의 [교육팀 설정] 화면에 붙여 넣는다. 탭·팀 코드·사진 폴더가 자동으로 만들어진다.
+ *  5) (새 기록 알림 메일) 편집기 위쪽에서 함수 setupNotify 를 골라 [실행] → 권한 허용. 팀이 기록을 남기면 몇 분 안에
+ *     내 메일로 알림이 온다. 받는 주소 바꾸기·끄기는 관리자 화면 → 설정.
  *
  * 데이터는 이 시트의 탭(설정·팀·활동기록·영수증·파일·변경이력)에, 사진·영수증 파일은 내 드라이브의
  * 「AI프론티어 팀 기록 (사진·영수증)」 폴더에 쌓인다. 팀 코드가 맞아야만 읽고 쓸 수 있다.
@@ -13,7 +15,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-02.1';
+var VERSION = '2026-11-02.2';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -31,6 +33,11 @@ var MAX_THUMB = 45000;                 // 시트 셀 한도 50,000자
 var FAIL_LIMIT = 20;                   // 10분 안에 20번 틀리면
 var FAIL_WINDOW = 600;                 // 10분 잠금
 var OK_MIME = /^(image\/(jpeg|png|webp|gif|heic|heif)|application\/pdf)$/;
+var APP_URL = 'https://kuhedu.github.io/aifrontier/';
+var NOTIFY_EVERY = 5;                  // 분마다 변경이력을 본다(시간 트리거)
+var NOTIFY_QUIET = 2 * 60 * 1000;      // 마지막 저장 뒤 2분 조용해지면 보낸다(활동과 영수증을 한 통으로)
+var NOTIFY_MAX_WAIT = 15 * 60 * 1000;  // 저장이 계속 이어져도 15분이 넘으면 보낸다
+var NOTIFY_MAX_LINES = 60;
 
 // 열 정의: [키, 시트 머리글, 종류]  종류 t=글자 n=숫자 d=날짜 h=시각 s=일시
 var TABS = {
@@ -59,6 +66,7 @@ var SET_KEYS = {
   studyGoal: ['자율스터디목표', '팀별 자율스터디 목표 횟수'],
   studyHours: ['자율스터디시간', '자율스터디 1회 공가 인정 시간'],
   folderId: ['드라이브폴더ID', '사진·영수증 파일이 저장되는 내 드라이브 폴더'],
+  notifyEmail: ['알림메일', '팀이 기록을 남기면 알림을 받을 메일 주소(여러 개는 쉼표, 비우면 보내지 않음)'],
   createdAt: ['만든시각', '처음 설정한 시각']
 };
 
@@ -165,6 +173,7 @@ function load_(req) {
     res.files = files.map(pubFile_);
     res.sheetUrl = ss_().getUrl();
     res.folderUrl = S.folderId ? 'https://drive.google.com/drive/folders/' + S.folderId : '';
+    res.notify = notifyInfo_(S);
     return res;
   }
   var tid = who.team.id;
@@ -369,8 +378,18 @@ function saveSettings_(req) {
       if (clash) throw appErr_('bad', '팀 코드와 같은 번호는 관리자 코드로 쓸 수 없습니다.');
       setSetting_('adminCode', code);
     }
+    if (s.notifyEmail !== undefined) {
+      var to = emails_(s.notifyEmail, true);
+      var before = settings_().notifyEmail;
+      setSetting_('notifyEmail', to.join(', '));
+      if (to.length) {
+        ensureNotifyTrigger_();
+        if (to.join(', ') !== before) sendHello_(to); // 새 주소로 바로 한 통 보내 확인할 수 있게
+      }
+    }
     log_(who, '설정 저장', '', JSON.stringify(s.adminCode ? { adminCode: '변경' } : s).slice(0, 200));
-    return { settings: pubSettings_(settings_()) };
+    var S2 = settings_();
+    return { settings: pubSettings_(S2), notify: notifyInfo_(S2) };
   });
 }
 
@@ -677,6 +696,189 @@ function folder_(tid) {
   props.setProperty(key, f.getId());
   return f;
 }
+
+/* ───────── 새 기록 알림 메일 ───────── */
+
+// 편집기에서 한 번 실행한다: 메일 보내기·트리거 권한을 허용하고, 받는 주소가 비어 있으면 내 계정 메일로 켠다.
+function setupNotify() {
+  return withLock_(function () {
+    var to = emails_(settings_().notifyEmail);
+    if (!to.length) { to = [Session.getEffectiveUser().getEmail()]; setSetting_('notifyEmail', to.join(', ')); }
+    ensureNotifyTrigger_();
+    sendHello_(to);
+    log_({ label: '설치' }, '알림 메일 켬', '', to.join(', '));
+    console.log('새 기록 알림 메일을 켰습니다: ' + to.join(', '));
+    return to.join(', ');
+  });
+}
+
+// 시간 트리거(NOTIFY_EVERY분마다)가 부른다. 저장 중이면 다음 차례로 미룬다.
+function notifyTick() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return;
+  try { _C = {}; notify_(Date.now()); }
+  finally { lock.releaseLock(); }
+}
+
+// 변경이력에서 지난번 뒤로 팀이 남긴 줄만 모아 메일 한 통으로 보낸다. 교육팀이 한 일은 보내지 않는다.
+function notify_(now) {
+  var props = PropertiesService.getScriptProperties();
+  var last = sheet_('log').getLastRow();
+  var done = Number(props.getProperty('NOTIFY_ROW') || 0);
+  if (!done || done > last) { props.setProperty('NOTIFY_ROW', String(last)); return 0; } // 처음이거나 이력 줄을 지웠으면 여기서부터
+  if (last === done) return 0;
+  var rows = readAll_('log').filter(function (r) {
+    return r._row > done && r._row <= last && ['교육팀', '설치', ''].indexOf(String(r.who)) < 0;
+  });
+  var to = emails_(settings_().notifyEmail);
+  if (!rows.length || !to.length) { props.setProperty('NOTIFY_ROW', String(last)); return 0; }
+  var times = rows.map(function (r) { return atMs_(r.at); });
+  var newest = Math.max.apply(null, times), oldest = Math.min.apply(null, times);
+  if (now - newest < NOTIFY_QUIET && now - oldest < NOTIFY_MAX_WAIT) return 0; // 아직 저장이 이어지는 중
+  if (MailApp.getRemainingDailyQuota() < to.length) return 0; // 하루 한도: 내일 이어서
+  var mail = notifyMail_(rows, now);
+  if (mail) MailApp.sendEmail({ to: to.join(','), name: mailName_(), subject: mail.subject, body: mail.body });
+  props.setProperty('NOTIFY_ROW', String(last));
+  return mail ? rows.length : 0;
+}
+
+function notifyMail_(rows, now) {
+  var course = settings_().courseName || 'AI프론티어';
+  var acts = readAll_('act'), rcps = readAll_('rcp');
+  var rank = {};
+  teams_().forEach(function (t, i) { rank[t.name] = i; });
+  var groups = {}, labels = [];
+  rows.forEach(function (r) {
+    var g = groups[r.who];
+    if (!g) { g = groups[r.who] = { act: {}, actIds: [], rcp: {}, rcpIds: [], members: null }; labels.push(r.who); }
+    if (r.action === '팀원 수정') { g.members = r.summary; return; }
+    var kind = /^활동 /.test(r.action) ? 'act' : /^영수증 /.test(r.action) ? 'rcp' : '';
+    if (!kind || !r.target) return;
+    var e = g[kind][r.target];
+    if (!e) { e = g[kind][r.target] = { isNew: false, del: false, summary: '' }; g[kind + 'Ids'].push(r.target); }
+    if (/ (등록|제출)$/.test(r.action)) e.isNew = true;
+    e.del = / 삭제$/.test(r.action);
+    e.summary = r.summary;
+  });
+  labels.sort(function (a, b) { return (a in rank ? rank[a] : 99) - (b in rank ? rank[b] : 99); });
+  var lines = [], shown = [], n = { act: 0, rcp: 0, mem: 0 };
+  labels.forEach(function (label) {
+    var g = groups[label], used = {}, out = [];
+    g.actIds.forEach(function (id) {
+      var e = g.act[id];
+      n.act++;
+      out.push('- ' + (e.del ? '활동 기록 삭제' : e.isNew ? '새 활동 기록' : '활동 기록 고침') + ': ' + actLine_(find_(acts, id), e));
+      g.rcpIds.forEach(function (rid) { // 이 활동에 붙은 영수증은 활동 아래에
+        var x = find_(rcps, rid);
+        if (!x || x.actId !== id) return;
+        used[rid] = true;
+        n.rcp++;
+        out.push('    · ' + rcpLine_(x, g.rcp[rid], null));
+      });
+    });
+    g.rcpIds.forEach(function (rid) {
+      if (used[rid]) return;
+      var x = find_(rcps, rid);
+      n.rcp++;
+      out.push('- ' + rcpLine_(x, g.rcp[rid], x ? find_(acts, x.actId) : null));
+    });
+    if (g.members !== null) { n.mem++; out.push('- 팀원 수정: ' + (g.members || '(모두 지움)')); }
+    if (!out.length) return;
+    shown.push(label);
+    lines.push('', '[' + label + ']');
+    Array.prototype.push.apply(lines, out);
+  });
+  if (!shown.length) return null;
+  if (lines.length > NOTIFY_MAX_LINES) {
+    var more = lines.length - NOTIFY_MAX_LINES;
+    lines = lines.slice(0, NOTIFY_MAX_LINES).concat(['', '… 나머지 ' + more + '줄은 관리자 화면에서 확인해 주세요.']);
+  }
+  var parts = [];
+  if (n.act) parts.push('활동 기록 ' + n.act + '건');
+  if (n.rcp) parts.push('영수증 ' + n.rcp + '건');
+  if (n.mem) parts.push('팀원 수정');
+  var at = Utilities.formatDate(new Date(now), TZ, 'yyyy-MM-dd HH:mm');
+  return {
+    subject: '[' + course + '] ' + shown.join('·') + ' — ' + parts.join(', '),
+    body: course + ' 팀이 남긴 새 기록입니다(' + md_(at.slice(0, 10)) + ' ' + at.slice(11) + ' 기준).\n' + lines.join('\n') + '\n\n' + mailFooter_()
+  };
+}
+
+function actLine_(a, e) {
+  if (!a) return e.summary;
+  var s = md_(a.date) + ' ' + (a.type || '') + ' 「' + (a.topic || '주제 없음') + '」';
+  if (Number(a.hours)) s += ' ' + round2_(Number(a.hours)) + '시간';
+  if (a.writer) s += ' · 작성 ' + a.writer;
+  var m = /\(영수증 \d+건 함께\)/.exec(e.summary || '');
+  if (e.del && m) s += ' ' + m[0];
+  return s;
+}
+
+function rcpLine_(x, e, act) {
+  var del = e.del || (x && x.deleted === 'Y');
+  var head = del ? '영수증 뺌' : e.isNew ? '영수증 제출' : (x && x.status === '제출' && x.reviewNote ? '영수증 다시 제출(보완 요청 뒤)' : '영수증 고침');
+  if (!x) return head + ': ' + e.summary;
+  var s = head + ': ' + x.store + ' ' + won_(x.amount) + ' (' + md_(x.date) + (x.payer ? ', 결제 ' + x.payer : '') + ')';
+  if (act) s += ' — 활동 ' + md_(act.date) + ' 「' + (act.topic || '주제 없음') + '」';
+  return s;
+}
+
+function sendHello_(to) {
+  MailApp.sendEmail({ to: to.join(','), name: mailName_(), subject: '[' + (settings_().courseName || 'AI프론티어') + '] 새 기록 알림 메일을 켰습니다',
+    body: '앞으로 팀이 활동 기록이나 영수증을 남기거나 고치면 몇 분 안에 이 주소로 알림 메일을 보냅니다.\n'
+      + '받는 주소: ' + to.join(', ') + '\n\n' + mailFooter_() });
+}
+
+function mailFooter_() {
+  return '관리자 화면: ' + APP_URL + '#admin\n\n'
+    + '팀이 기록을 남기거나 고치면 몇 분 안에 자동으로 보내는 메일입니다.\n'
+    + '받는 주소 바꾸기·끄기: 관리자 화면 → 설정 → 새 기록 알림 메일';
+}
+
+function mailName_() { return (settings_().courseName || 'AI프론티어') + ' 팀 기록'; }
+
+// 트리거가 없으면 만들고, 그때부터 쌓인 이력만 보내도록 기준 줄을 지금 끝 줄로 맞춘다.
+function ensureNotifyTrigger_() {
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'notifyTick'; });
+  if (has) return;
+  PropertiesService.getScriptProperties().setProperty('NOTIFY_ROW', String(sheet_('log').getLastRow()));
+  ScriptApp.newTrigger('notifyTick').timeBased().everyMinutes(NOTIFY_EVERY).create();
+}
+
+// on: 트리거가 있으면 true, 없으면 false, 권한이 없어 알 수 없으면 null
+function notifyInfo_(S) {
+  var on = null;
+  try { on = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'notifyTick'; }); } catch (e) { on = null; }
+  return { email: S.notifyEmail || '', on: on };
+}
+
+// 쉼표·공백으로 나눈 메일 주소. strict 이면 틀린 주소에서 멈추고, 아니면 틀린 주소는 건너뛴다.
+function emails_(v, strict) {
+  var out = [];
+  String(v || '').split(/[,;\s]+/).forEach(function (x) {
+    if (!x) return;
+    if (x.length > 100 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)) {
+      if (strict) throw appErr_('bad', '메일 주소를 확인해 주세요: ' + x.slice(0, 60));
+      return;
+    }
+    if (out.indexOf(x) < 0) out.push(x);
+  });
+  if (strict && out.length > 5) throw appErr_('bad', '알림 메일 주소는 5개까지 넣을 수 있습니다.');
+  return out.slice(0, 5);
+}
+
+function atMs_(s) {
+  var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(s || ''));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4] - 9, +m[5], +m[6]) : 0; // 시트 시각은 한국 시간
+}
+
+function md_(d) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
+  if (!m) return String(d || '');
+  return (+m[2]) + '.' + (+m[3]) + '(' + '일월화수목금토'.charAt(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()) + ')';
+}
+
+function won_(v) { return String(Math.round(Number(v) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '원'; }
 
 /* ───────── 밖으로 내보내는 모양 ───────── */
 

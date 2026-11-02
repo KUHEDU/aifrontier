@@ -329,7 +329,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-02.1';
+const APP_VERSION = '2026-11-02.2';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -1199,9 +1199,20 @@ function adminSet() {
       <div class="field"><label for="set-hours">회당 인정 시간</label><input id="set-hours" class="in" inputmode="decimal" value="${esc(s.studyHours)}"></div></div>
     <div class="field"><label for="set-course">과정 이름</label><input id="set-course" class="in" value="${esc(s.courseName)}"></div>
     <button class="btn primary" data-act="saveSettings">저장</button></div>
+  ${d.notify ? notifyPanel(d.notify) : ''}
   <div class="panel"><h2>관리자 코드 바꾸기</h2><p>바꾸면 다른 기기의 관리자 화면은 새 코드로 다시 들어가야 합니다.</p>
     <div class="inline-add"><input id="set-admin" class="in" maxlength="12" placeholder="새 관리자 코드(4~12자리)"><button class="btn" data-act="saveAdminCode">바꾸기</button></div></div>
   <div class="panel"><h2>연결 정보</h2><p style="word-break:break-all">서버: ${esc(st.api)}</p><div class="btn-row"><button class="btn" data-act="showSetupAgain">설치 안내 보기</button><button class="btn danger" data-act="askLogout">이 기기에서 나가기</button></div></div>`;
+}
+// 새 기록 알림 메일(서버 2026-11-02.2부터). on: 트리거 있음 true·없음 false·권한 없어 모름 null
+function notifyPanel(n) {
+  const state = !n.email ? '<b>꺼져 있습니다.</b> 받을 주소를 넣고 저장하면 켜집니다.'
+    : n.on === true ? '<b>켜져 있습니다.</b> 5분마다 새 기록을 확인해서, 있으면 메일 한 통으로 모아 보냅니다.'
+    : n.on === false ? '<b>멈춰 있습니다.</b> 주소는 그대로 두고 [저장]을 한 번 더 누르면 다시 켜집니다.'
+    : '메일 보내기 권한이 없어 상태를 알 수 없습니다. Apps Script 편집기에서 setupNotify 를 한 번 실행해 주세요.';
+  return `<div class="panel"><h2>새 기록 알림 메일</h2><p>팀이 활동 기록이나 영수증을 남기거나 고치면 몇 분 안에 이 주소로 메일을 보냅니다. 여러 주소는 쉼표로 구분합니다.</p>
+    <div class="inline-add"><input id="set-notify" class="in" type="email" multiple autocomplete="email" maxlength="300" value="${esc(n.email)}" placeholder="받을 메일 주소"><button class="btn" data-act="saveNotify">저장</button></div>
+    <p class="hint" id="notify-state" style="margin:10px 0 0">${state}</p></div>`;
 }
 function guideText(t) {
   const set = D().settings;
@@ -1489,6 +1500,19 @@ const ACT = {
     el.disabled = true;
     try { busy(true); await api('saveSettings', { settings: { adminCode: code } }); st.auth = { admin: code }; lsSet(LS.auth, st.auth); saveCache(); toast('관리자 코드를 바꿨습니다'); $('#set-admin').value = ''; }
     catch (e) { toast(e.message, 4500); } finally { el.disabled = false; busy(false); }
+  },
+  saveNotify: async (el) => {
+    const list = $('#set-notify').value.split(/[,;\s]+/).filter(Boolean);
+    if (list.some((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x))) { toast('메일 주소를 확인해 주세요.'); $('#set-notify').focus(); return; }
+    const before = (D().notify || {}).email || '', next = list.join(', ');
+    if (!list.length && before && !(await ask('알림 메일을 끌까요? 팀이 기록을 남겨도 메일이 오지 않습니다.', '끄기', true))) return;
+    el.disabled = true;
+    try {
+      busy(true);
+      const r = await api('saveSettings', { settings: { notifyEmail: next } });
+      D().notify = r.notify; saveCache(); render();
+      toast(!list.length ? '알림 메일을 껐습니다' : next !== before ? '저장했습니다. 이 주소로 확인 메일을 보냈습니다' : '저장했습니다');
+    } catch (e) { toast(e.message, 4500); } finally { el.disabled = false; busy(false); }
   },
   review: async (el) => {
     const id = el.dataset.id, s = el.dataset.s;
