@@ -329,7 +329,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-02.2';
+const APP_VERSION = '2026-11-02.3';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -1468,7 +1468,7 @@ const ACT = {
   },
   copyMyLink: () => {
     const t = Object.assign({}, D().team, { code: st.auth.code });
-    copyText(`[${D().settings.courseName || 'AI프론티어'}] ${t.name} 활동 기록 링크\n${teamLink(t)}`, '우리 팀 링크를 복사했습니다');
+    copyText(teamLink(t), '우리 팀 링크를 복사했습니다'); // 주소만(붙여 넣으면 링크 하나만 보이게)
   },
   teamDetail: (el) => teamDetail(el.dataset.id),
   copyLink: (el) => { const t = teamOf(el.dataset.id); copyText(teamLink(t), t.name + ' 링크를 복사했습니다'); },
