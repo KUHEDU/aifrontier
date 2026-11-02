@@ -60,9 +60,11 @@ button{cursor:pointer}
 .meter.over i{background:#FF8A8A}
 .budget-sub{font-size:13px;color:rgba(255,255,255,.66);font-variant-numeric:tabular-nums}
 
-/* 두 큰 버튼 — 띠 아래 걸침 */
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;margin-top:-28px;position:relative;z-index:2}
-.big{display:flex;align-items:center;justify-content:center;gap:8px;height:58px;border-radius:var(--r-btn);border:1px solid var(--line);background:#fff;color:var(--blue);font-size:17px;font-weight:680;box-shadow:0 6px 18px rgba(12,43,63,.12)}
+/* 큰 버튼 — 띠 아래 걸침 */
+.actions{display:grid;grid-template-columns:1fr;gap:10px;padding:0 16px;margin-top:-30px;position:relative;z-index:2}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;min-height:62px;padding:8px 16px;border-radius:var(--r-btn);border:1px solid var(--line);background:#fff;color:var(--blue);font-size:17px;font-weight:680;box-shadow:0 6px 18px rgba(12,43,63,.12)}
+.big .big-l{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;text-align:left}
+.big .big-l small{font-size:13px;font-weight:550;opacity:.8}
 .big.primary{background:var(--blue);border-color:var(--blue);color:#fff}
 .big:active{transform:translateY(1px)}
 .big.primary:active{background:var(--blue-press)}
@@ -185,6 +187,25 @@ textarea.in{min-height:110px;resize:vertical;line-height:1.55}
 .status-box.s-보완요청{background:var(--warn-bg);color:var(--warn)}
 .status-box b{display:block;margin-bottom:2px}
 
+/* 활동 기록에 붙인 영수증 */
+.sec-h{margin:22px 20px 0;font-size:15px;font-weight:700;color:var(--slate)}
+.sec-h .cnt{font-weight:500;color:var(--mute);margin-left:4px;font-variant-numeric:tabular-nums}
+.rc-list{margin:0}
+.rc-row .thumb.none{background:var(--danger-bg);color:var(--danger)}
+.rc-add{justify-content:center;gap:8px;min-height:56px;color:var(--blue);font-size:16px;font-weight:680}
+.rc-add svg{flex:none}
+.p-new{background:#E3EEFF;color:var(--blue)}
+.rc-card{background:#fff;border:1px solid var(--line2);border-radius:14px;padding:14px 16px;margin:0 0 10px}
+.rc-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.rc-amt{font-size:19px;font-weight:760;font-variant-numeric:tabular-nums;margin-right:6px}
+.rc-store{font-size:16px;font-weight:650}
+.rc-meta{margin:4px 0 0;font-size:14px;color:var(--slate)}
+.rc-meta.miss{color:var(--danger);font-weight:600}
+.rc-card .photos{margin-top:10px}
+.rc-card .status-box{margin-top:10px}
+.rv{margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);display:grid;gap:8px}
+.rv .in{min-height:44px;font-size:16px}
+
 /* 사진 크게 보기 */
 #viewer{position:fixed;inset:0;z-index:70;background:#05121C;display:flex;flex-direction:column}
 #viewer .v-top{display:flex;justify-content:space-between;align-items:center;padding:calc(6px + env(safe-area-inset-top)) 8px 6px 16px;color:#fff;font-size:14px}
@@ -277,6 +298,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 #print table{width:100%;border-collapse:collapse;font-size:12px;margin:0 0 8mm}
 #print th,#print td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
 #print td.r,#print th.r{text-align:right;font-variant-numeric:tabular-nums}
+#print .nw{white-space:nowrap}
 #print .p-rcp{break-inside:avoid;page-break-inside:avoid;border:1px solid #bbb;padding:4mm;margin:0 0 6mm}
 #print .p-rcp h2{font-size:14px;margin:0 0 2mm}
 #print .p-rcp p{font-size:12px;margin:0 0 2mm}
@@ -307,21 +329,22 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-10-30.2';
+const APP_VERSION = '2026-11-02.1';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
-const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', dRcp: 'af.draft.rcp' };
+const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act' };
 const ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 const CATS = ['식비·다과', '인쇄·자료', '도서', '소모품', '장소 대관', '기타'];
 const METHODS = ['개인카드', '법인카드', '현금', '기타'];
 const STATUS_LABEL = { '제출': '확인 대기', '확인': '확인 완료', '보완요청': '보완 요청' };
 const MAX_FILES = 4;
+const MAX_RCPS = 10; // 한 활동에 붙이는 영수증 수
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 
 const st = {
   api: '', auth: null, data: null, tab: 'acts', atab: 'dash',
-  af: { team: 'all', status: 'wait' }, actf: 'all', full: new Map(), form: null, lastErr: ''
+  af: { team: 'all', status: 'all' }, full: new Map(), form: null, lastErr: ''
 };
 
 /* ───────── 작은 도구 ───────── */
@@ -458,7 +481,7 @@ function openSheet(html, opts) {
   w.className = 'sheet-wrap' + (opts.full ? ' full' : '');
   w.innerHTML = `<div class="sheet-bg" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(opts.label || '')}">${html}</div>`;
   $('#sheets').appendChild(w);
-  sheets.push({ el: w, onClose: opts.onClose });
+  sheets.push({ el: w, onClose: opts.onClose, rerender: opts.rerender });
   history.pushState({ sheet: sheets.length }, '');
   document.body.classList.add('noscroll');
   requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add('open')));
@@ -492,6 +515,16 @@ window.addEventListener('popstate', (e) => {
   settleClose();
 });
 function topSheet() { return sheets.length ? sheets[sheets.length - 1].el : null; }
+// 보기 창(활동 상세·팀 현황)은 데이터가 바뀌면 그 자리에서 다시 그린다(스크롤 위치 유지)
+function rerenderSheets() {
+  sheets.forEach((s) => {
+    const html = s.rerender ? s.rerender() : null;
+    if (html === null || html === undefined) return;
+    const body = s.el.querySelector('.sh-body'), top = body ? body.scrollTop : 0;
+    s.el.querySelector('.sheet').innerHTML = html;
+    const b2 = s.el.querySelector('.sh-body'); if (b2) b2.scrollTop = top;
+  });
+}
 function sheetHead(title, back) {
   return `<div class="sh-head"><h2>${esc(title)}</h2><button class="icon-btn" data-act="closeSheet" aria-label="${back ? '뒤로' : '닫기'}">${ICON.close}</button></div>`;
 }
@@ -533,6 +566,10 @@ function attendance(id) {
   return [...m.values()].sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name, 'ko'));
 }
 const byDateDesc = (a, b) => (b.date + (b.start || '') + b.created).localeCompare(a.date + (a.start || '') + a.created);
+// 활동에 붙은 영수증(붙인 순서)
+function rcpsOf(actId) { return D().rcps.filter((r) => r.actId === actId).sort((a, b) => String(a.created || '').localeCompare(String(b.created || ''))); }
+// 영수증 여러 건의 대표 상태: 보완 요청 > 확인 대기 > 확인 완료
+function rcpState(rcs) { return !rcs.length ? '' : rcs.some((r) => r.status === '보완요청') ? '보완요청' : rcs.some((r) => r.status === '제출') ? '제출' : '확인'; }
 function upsert(arr, obj) { const i = arr.findIndex((x) => x.id === obj.id); if (i >= 0) arr[i] = obj; else arr.push(obj); }
 function setFiles(owner, files) { const d = D(); d.files = d.files.filter((f) => f.owner !== owner).concat(files || []); }
 function saveCache() {
@@ -550,6 +587,7 @@ async function refresh(quiet) {
     if (key !== JSON.stringify(st.auth)) return; // 그새 다른 팀 링크로 바뀜
     st.data = d; st.lastErr = '';
     saveCache();
+    rerenderSheets();
   } catch (e) {
     if (key !== JSON.stringify(st.auth)) return;
     if (e instanceof AppErr && (e.code === 'auth' || e.code === 'auth_admin')) { logout(e.message); return; }
@@ -618,9 +656,11 @@ async function renderLogin(msg, adminFirst) {
   try {
     busy(true);
     const r = await api('ping', {}, { noAuth: true, tries: 2 });
+    if (!$('#login-box')) return; // 그새 다른 화면으로 넘어감(팀 링크를 누른 경우 등)
     if (!r.ready) { $('#login-box').innerHTML = `<div class="panel"><h2>아직 설정 전입니다</h2><p>교육팀이 처음 설정을 마쳐야 쓸 수 있습니다.</p><button class="btn primary" data-act="showSetup">교육팀: 설정하기</button></div>`; return; }
     teams = r.teams || [];
   } catch (e) {
+    if (!$('#login-box')) return;
     $('#login-box').innerHTML = `<div class="notice err" style="margin:0 0 12px;width:100%">${esc(e.message)}</div><button class="btn primary" data-act="retryLogin">다시 시도</button>`;
     return;
   } finally { busy(false); }
@@ -652,8 +692,8 @@ function renderTeam() {
   const pct = s.budget ? Math.min(100, Math.max(0, s.spent / s.budget * 100)) : 0;
   const others = d.acts.filter((a) => a.team !== t.id);
   const fixes = s.rcps.filter((r) => r.status === '보완요청');
-  const myActs = s.acts.slice().sort(byDateDesc), myRcps = s.rcps.slice().sort(byDateDesc);
-  if (st.tab === 'others' && !others.length) st.tab = 'acts';
+  const myActs = s.acts.slice().sort(byDateDesc);
+  if (st.tab !== 'others' || !others.length) st.tab = 'acts';
   app().innerHTML = `
   <header class="band"><div class="wrap">
     <div class="band-top"><span class="course">${esc(set.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="teamMenu" aria-label="팀 메뉴">${ICON.more}</button></div>
@@ -665,43 +705,31 @@ function renderTeam() {
       <div class="budget-sub">사용 ${won(s.spent)} / 예산 ${won(s.budget)}</div></div>
   </div></header>
   <div class="wrap">
-    <div class="actions"><button class="big primary" data-act="newAct">${ICON.note}활동 기록</button><button class="big" data-act="newRcp">${ICON.receipt}영수증 올리기</button></div>
-    ${fixes.length ? `<button class="notice" data-act="openRcp" data-id="${esc(fixes[0].id)}"><span class="grow">교육팀이 영수증 ${fixes.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
+    <div class="actions"><button class="big primary" data-act="newAct">${ICON.note}<span class="big-l">활동 기록하기<small>쓴 활동지원비 영수증도 같이 붙입니다</small></span></button></div>
+    ${fixes.length ? `<button class="notice" data-act="openAct" data-id="${esc(fixes[0].actId)}" data-focus="rcps"><span class="grow">교육팀이 영수증 ${fixes.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
-    <div class="tabs" role="tablist">
-      <button role="tab" aria-selected="${st.tab === 'acts'}" data-act="tab" data-tab="acts">활동 기록<span class="cnt">${myActs.length}</span></button>
-      <button role="tab" aria-selected="${st.tab === 'rcps'}" data-act="tab" data-tab="rcps">영수증<span class="cnt">${myRcps.length}</span></button>
-      ${others.length ? `<button role="tab" aria-selected="${st.tab === 'others'}" data-act="tab" data-tab="others">다른 팀<span class="cnt">${others.length}</span></button>` : ''}
-    </div>
-    ${st.tab === 'rcps' ? rcpList(myRcps) : st.tab === 'others' ? othersList(others) : actList(myActs)}
+    ${others.length ? `<div class="tabs" role="tablist">
+      <button role="tab" aria-selected="${st.tab === 'acts'}" data-act="tab" data-tab="acts">우리 팀 기록<span class="cnt">${myActs.length}</span></button>
+      <button role="tab" aria-selected="${st.tab === 'others'}" data-act="tab" data-tab="others">다른 팀<span class="cnt">${others.length}</span></button>
+    </div>` : `<h2 class="sec-h">활동 기록<span class="cnt">${myActs.length}</span></h2>`}
+    ${st.tab === 'others' ? othersList(others) : actList(myActs)}
   </div>`;
 }
 
 function actRow(a, showTeam) {
-  const nPh = filesOf('A:' + a.id).length;
+  const nPh = filesOf('A:' + a.id).length, rcs = rcpsOf(a.id), rs = rcpState(rcs);
   const time = a.start && a.end ? `${a.start}–${a.end} (${hoursText(a.hours)})` : (a.hours ? hoursText(a.hours) : '');
-  const meta = [time, a.attendees && a.attendees.length ? '참석 ' + a.attendees.length + '명' : '', nPh ? '사진 ' + nPh : ''].filter(Boolean).join(', ');
+  const meta = [time, a.attendees && a.attendees.length ? '참석 ' + a.attendees.length + '명' : '', nPh ? '사진 ' + nPh : '', rcs.length ? '영수증 ' + rcs.length + '건' : ''].filter(Boolean).join(', ');
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a.date) || [];
   const wd = dm.length ? WD[new Date(+dm[1], +dm[2] - 1, +dm[3]).getDay()] : '';
   return `<button class="row" data-act="openAct" data-id="${esc(a.id)}"><div class="row-date"><b>${dm.length ? (+dm[2]) + '.' + (+dm[3]) : ''}</b><span>${wd}</span></div>
     <div class="row-main"><div class="row-title">${showTeam ? `<span class="tag team">${esc(teamName(a.team))}</span>` : ''}<span class="tag ${a.type === '자율스터디' ? 'study' : ''}">${esc(a.type)}</span>${esc(a.topic || '(주제 없음)')}</div>
-    <div class="row-meta">${esc(meta || a.place || '')}</div></div></button>`;
+    <div class="row-meta">${esc(meta || a.place || '')}</div></div>
+    ${rcs.length ? `<div class="row-end"><b class="amt">${won(sum(rcs.map((r) => r.amount)))}</b><span class="pill p-${esc(rs)}">${STATUS_LABEL[rs]}</span></div>` : ''}</button>`;
 }
 function actList(acts) {
-  if (!acts.length) return `<div class="list"><div class="empty"><p>아직 활동 기록이 없습니다.<br>스터디나 회의가 끝나면 바로 남겨 주세요.</p><button class="btn primary" data-act="newAct">첫 활동 기록하기</button></div></div>`;
+  if (!acts.length) return `<div class="list"><div class="empty"><p>아직 활동 기록이 없습니다.<br>스터디나 회의가 끝나면 바로 남겨 주세요.<br>활동지원비를 썼다면 영수증도 그 기록에 붙입니다.</p><button class="btn primary" data-act="newAct">첫 활동 기록하기</button></div></div>`;
   return `<div class="list">${acts.map((a) => actRow(a)).join('')}</div>`;
-}
-function rcpRow(r, showTeam) {
-  const f = filesOf('R:' + r.id);
-  const th = f.find((x) => safeImg(x.thumb));
-  const thumb = th ? `<div class="thumb" style="background-image:url('${safeImg(th.thumb)}')"></div>` : `<div class="thumb">${f.length ? (f[0].mime === 'application/pdf' ? 'PDF' : '사진') : '사진 없음'}</div>`;
-  return `<button class="row" data-act="openRcp" data-id="${esc(r.id)}">${thumb}
-    <div class="row-main"><div class="row-title">${showTeam ? `<span class="tag team">${esc(teamName(r.team))}</span>` : ''}${esc(r.store)}</div><div class="row-meta">${fmtD(r.date)} ${esc(r.category || '')}${r.item ? ', ' + esc(r.item) : ''}</div></div>
-    <div class="row-end"><b class="amt">${won(r.amount)}</b><span class="pill p-${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span></div></button>`;
-}
-function rcpList(rcps) {
-  if (!rcps.length) return `<div class="list"><div class="empty"><p>올린 영수증이 없습니다.<br>활동지원비를 썼다면 영수증 사진을 올려 주세요.</p><button class="btn primary" data-act="newRcp">영수증 올리기</button></div></div>`;
-  return `<div class="list">${rcps.map((r) => rcpRow(r)).join('')}</div>`;
 }
 function othersList(acts) {
   const groups = {};
@@ -784,8 +812,10 @@ async function onPicked(e) {
     }
   } finally { busy(false); }
 }
+// 열려 있는 입력 창 안에서 찾기 — 활동 양식 위에 영수증 양식이 겹쳐 열리면 같은 id가 두 군데 있다
+const fq = (sel) => $(sel, (st.form && st.form.el) || document);
 function drawPhotos() {
-  const f = st.form, box = $('#photos');
+  const f = st.form, box = fq('#photos');
   if (!f || !box) return;
   const tiles = f.files.map((p, i) => {
     const bg = safeImg(p.thumb) ? `style="background-image:url('${safeImg(p.thumb)}')"` : '';
@@ -793,27 +823,38 @@ function drawPhotos() {
   });
   if (f.files.length < MAX_FILES && f.kind === 'act') tiles.push(`<label class="ph-add" for="pick-file" data-pick role="button" tabindex="0">${ICON.image}<span>사진 추가</span></label>`);
   box.innerHTML = tiles.join('');
-  const cnt = $('#photo-count'); if (cnt) cnt.textContent = f.files.length + '/' + MAX_FILES;
+  const cnt = fq('#photo-count'); if (cnt) cnt.textContent = f.files.length + '/' + MAX_FILES;
 }
 
-/* ───── 활동 기록 입력 ───── */
+/* ───── 활동 기록 입력(영수증은 이 안에 붙인다) ───── */
 function members() { const d = D(); const t = d.role === 'admin' ? teamOf(st.form && st.form.team) : d.team; return (t && t.members) || []; }
+const RCP_DRAFT_KEYS = ['id', 'date', 'dateAuto', 'amount', 'store', 'category', 'item', 'payer', 'method', 'memo'];
+function rcpDraft(r) {
+  return { id: r.id, isNew: false, dirty: false, date: r.date, dateAuto: false, amount: String(r.amount || ''), store: r.store || '', category: r.category || '기타',
+    item: r.item || '', payer: r.payer || '', method: r.method || '', memo: r.memo || '', writer: r.writer || '', status: r.status || '제출', reviewNote: r.reviewNote || '',
+    files: filesOf('R:' + r.id).map((x) => Object.assign({}, x, { isNew: false })), remove: [] };
+}
 function openActForm(a) {
   const isNew = !a;
   const draft = isNew ? lsGet(LS.dAct, null) : null;
-  const base = a || (draft && draft.team === (D().team || {}).id ? draft : null) || {};
+  const fromDraft = !!(draft && draft.team === (D().team || {}).id);
+  const base = a || (fromDraft ? draft : null) || {};
   const me = lsGet(LS.me, '');
   st.form = {
     kind: 'act', id: a ? a.id : (base.id || rid('a')), isNew: isNew, team: a ? a.team : (D().team || {}).id,
     type: base.type || '자율스터디', date: base.date || todayStr(), start: base.start || '', end: base.end || '',
     place: base.place || '', attendees: (base.attendees || []).slice(), topic: base.topic || '', content: base.content || '', next: base.next || '',
-    writer: base.writer || me, files: a ? filesOf('A:' + a.id).map((x) => Object.assign({}, x, { isNew: false })) : [], remove: []
+    writer: base.writer || me, files: a ? filesOf('A:' + a.id).map((x) => Object.assign({}, x, { isNew: false })) : [], remove: [],
+    rcps: a ? rcpsOf(a.id).map(rcpDraft) : fromDraft && Array.isArray(draft.rcps)
+      ? draft.rcps.map((r) => Object.assign({ category: '기타', writer: '', status: '', reviewNote: '' }, r, { isNew: true, dirty: true, files: [], remove: [] })) : [],
+    removeRcps: []
   };
   const f = st.form;
+  const restored = fromDraft && isNew && (draft.topic || (draft.rcps && draft.rcps.length));
   const places = [...new Set(D().acts.map((x) => x.place).filter(Boolean))].slice(0, 12);
-  openSheet(`${sheetHead(isNew ? '활동 기록' : '활동 기록 수정')}
+  f.el = openSheet(`${sheetHead(isNew ? '활동 기록' : '활동 기록 수정')}
   <form class="sh-body" id="act-form" autocomplete="off" novalidate>
-    ${draft && isNew && draft.topic ? `<div class="notice info" style="margin:0 0 16px;width:100%"><span class="grow">작성하던 내용을 불러왔습니다.</span><button type="button" class="btn ghost" data-act="clearDraft" data-k="act" style="height:32px">지우기</button></div>` : ''}
+    ${restored ? `<div class="notice info" style="margin:0 0 16px;width:100%"><span class="grow">작성하던 내용을 불러왔습니다.${f.rcps.length ? ' 영수증 사진은 다시 붙여 주세요.' : ''}</span><button type="button" class="btn ghost" data-act="clearDraft" style="height:32px">지우기</button></div>` : ''}
     <div class="field"><span class="lbl">유형</span><div class="chips" data-chips="type">${ACT_TYPES.map((x) => `<button type="button" class="chip" data-act="chip" data-k="type" data-v="${esc(x)}" aria-pressed="${f.type === x}">${esc(x)}</button>`).join('')}</div></div>
     <div class="field"><label for="a-date">날짜<span class="req">*</span></label><input id="a-date" class="in" type="date" data-f="date" value="${esc(f.date)}" required></div>
     <div class="two"><div class="field"><label for="a-start">시작</label><input id="a-start" class="in" type="time" data-f="start" value="${esc(f.start)}"></div>
@@ -826,48 +867,74 @@ function openActForm(a) {
     <div class="field"><label for="a-content">논의한 내용</label><textarea id="a-content" class="in" data-f="content" placeholder="무엇을 논의했고 무엇을 정했는지 적어 주세요.">${esc(f.content)}</textarea></div>
     <div class="field"><label for="a-next">다음에 할 일</label><textarea id="a-next" class="in" data-f="next" style="min-height:80px" placeholder="담당자와 기한이 있으면 같이 적어 주세요.">${esc(f.next)}</textarea></div>
     <div class="field"><span class="lbl">사진 <span id="photo-count" class="num" style="color:var(--mute);font-weight:500"></span></span><div class="photos" id="photos"></div><p class="hint">화이트보드, 회의 장면 등. 한 건에 4장까지.</p></div>
+    <div class="field"><span class="lbl">영수증 <span id="rcp-sum" class="num" style="color:var(--mute);font-weight:500"></span></span><div id="rcp-list"></div>
+      <p class="hint">활동지원비를 썼다면 영수증을 여기에 붙여 주세요. 영수증이 여러 장이면 한 장씩 붙입니다.</p></div>
     <div class="field"><label for="a-writer">작성자</label><input id="a-writer" class="in" data-f="writer" list="writer-list" value="${esc(f.writer)}" placeholder="이름"><datalist id="writer-list">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
   </form>
   <div class="sh-foot"><p class="err-msg hidden" id="form-err"></p><button class="btn primary block" data-act="saveAct" id="save-btn">${isNew ? '기록 저장' : '수정 내용 저장'}</button></div>`, { full: true, label: '활동 기록', onClose: () => { st.form = null; } });
-  drawAtt(); drawPhotos(); updHours();
+  drawAtt(); drawPhotos(); updHours(); drawRcps();
 }
 function drawAtt() {
-  const f = st.form, box = $('#att-chips');
+  const f = st.form, box = fq('#att-chips');
   if (!f || !box) return;
   const all = [...new Set(members().concat(f.attendees))];
   box.innerHTML = all.length ? all.map((n) => `<button type="button" class="chip" data-act="toggleAtt" data-v="${esc(n)}" aria-pressed="${f.attendees.includes(n)}">${esc(n)}</button>`).join('')
     : `<p class="hint" style="margin:0">팀원 이름을 팀 메뉴에 등록해 두면 눌러서 고를 수 있습니다.</p>`;
 }
 function updHours() {
-  const f = st.form, el = $('#a-hours');
+  const f = st.form, el = fq('#a-hours');
   if (!f || !el) return;
   const h = hoursBetween(f.start, f.end);
   el.textContent = h ? '활동 시간 ' + hoursText(h) : '';
+}
+// 양식 안의 영수증 목록(아직 저장 전인 것 포함)
+function drawRcps() {
+  const f = st.form, box = fq('#rcp-list');
+  if (!f || f.kind !== 'act' || !box) return;
+  const team = D().role === 'team';
+  const rows = f.rcps.map((r, i) => {
+    const th = r.files.find((x) => safeImg(x.thumb));
+    const thumb = th ? `<div class="thumb" style="background-image:url('${safeImg(th.thumb)}')"></div>`
+      : `<div class="thumb ${r.files.length ? '' : 'none'}">${r.files.length ? (r.files[0].mime === 'application/pdf' ? 'PDF' : '사진') : '사진 없음'}</div>`;
+    const pill = r.isNew ? '<span class="pill p-new">새로 붙임</span>' : `<span class="pill p-${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span>`;
+    const meta = [fmtD(r.dateAuto ? f.date : r.date) + ' ' + esc(r.category || ''), r.item ? esc(r.item) : '', !r.isNew && r.dirty ? '고친 내용 저장 전' : '', team && r.status === '확인' ? '고칠 수 없음' : ''].filter(Boolean).join(', ');
+    return `<button type="button" class="row rc-row" data-act="editSubRcp" data-i="${i}">${thumb}
+      <div class="row-main"><div class="row-title">${esc(r.store || '(사용처 없음)')}</div><div class="row-meta">${meta}</div></div>
+      <div class="row-end"><b class="amt">${won(r.amount)}</b>${pill}</div></button>`;
+  });
+  box.innerHTML = `<div class="list rc-list">${rows.join('')}<button type="button" class="row rc-add" data-act="addSubRcp">${ICON.receipt}<span>${f.rcps.length ? '영수증 한 장 더 붙이기' : '영수증 붙이기'}</span></button></div>`;
+  const s = fq('#rcp-sum'); if (s) s.textContent = f.rcps.length ? f.rcps.length + '건, ' + won(sum(f.rcps.map((r) => r.amount))) : '';
 }
 let draftTimer;
 function saveDraftSoon() {
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => {
-    const f = st.form;
+    const f = st.form && st.form.kind === 'rcp' ? st.form.parent : st.form; // 영수증 양식이 위에 열려 있어도 활동 양식을 남긴다
     if (!f || !f.isNew) return;
-    const keys = f.kind === 'act' ? ['id', 'team', 'type', 'date', 'start', 'end', 'place', 'attendees', 'topic', 'content', 'next', 'writer']
-      : ['id', 'team', 'date', 'amount', 'store', 'category', 'item', 'payer', 'method', 'memo', 'writer'];
-    const o = {}; keys.forEach((k) => { o[k] = f[k]; });
-    lsSet(f.kind === 'act' ? LS.dAct : LS.dRcp, o);
+    const o = {};
+    ['id', 'team', 'type', 'date', 'start', 'end', 'place', 'attendees', 'topic', 'content', 'next', 'writer'].forEach((k) => { o[k] = f[k]; });
+    o.rcps = f.rcps.filter((r) => r.isNew).map((r) => { const x = {}; RCP_DRAFT_KEYS.forEach((k) => { x[k] = r[k]; }); return x; }); // 사진은 남기지 않음
+    lsSet(LS.dAct, o);
   }, 400);
 }
-function formErr(msg) { const e = $('#form-err'); if (!e) { toast(msg); return; } e.textContent = msg; e.classList.toggle('hidden', !msg); }
-function setSaving(on, label) { const b = $('#save-btn'); if (!b) return; b.disabled = on; if (on) { b.dataset.label = b.dataset.label || b.textContent; b.textContent = label; } else if (b.dataset.label) b.textContent = b.dataset.label; }
+function formErr(msg) { const e = fq('#form-err'); if (!e) { if (msg) toast(msg); return; } e.textContent = msg; e.classList.toggle('hidden', !msg); }
+function setSaving(on, label) { const b = fq('#save-btn'); if (!b) return; b.disabled = on; if (on) { b.dataset.label = b.dataset.label || b.textContent; b.textContent = label; } else if (b.dataset.label) b.textContent = b.dataset.label; }
 
+const rcpChanged = (r) => r.isNew || r.dirty || r.files.some((x) => x.isNew) || r.remove.length > 0;
+// 저장 순서: 활동 → 새로 붙이거나 고친 영수증 → 뺀 영수증. 하나씩 보내고 끝난 것은 표시해 두므로 중간에 끊겨도 다시 누르면 남은 것만 이어서 보낸다
 async function saveAct() {
   const f = st.form;
-  if (!f) return;
+  if (!f || f.kind !== 'act') return;
   if (!f.date) { formErr('날짜를 넣어 주세요.'); return; }
-  if (!f.topic.trim()) { formErr('주제를 한 줄로 적어 주세요.'); $('#a-topic').focus(); return; }
+  if (!f.topic.trim()) { formErr('주제를 한 줄로 적어 주세요.'); fq('#a-topic').focus(); return; }
   formErr('');
+  const todo = f.rcps.filter(rcpChanged);
+  const noPhoto = todo.filter((r) => !r.files.length).length;
+  if (noPhoto && !(await ask(`사진 없는 영수증이 ${noPhoto}건 있습니다. 그대로 저장할까요? 사진은 나중에 수정에서 붙일 수 있습니다.`, '그대로 저장'))) return;
+  if (st.form !== f) return;
+  if (f.writer) lsSet(LS.me, f.writer);
   const nf = f.files.filter((x) => x.isNew);
   setSaving(true, nf.length ? '사진 올리는 중…' : '저장 중…');
-  if (f.writer) lsSet(LS.me, f.writer);
   try {
     const r = await api('saveAct', {
       act: { id: f.id, team: f.team, type: f.type, date: f.date, start: f.start, end: f.end, place: f.place, attendees: f.attendees, topic: f.topic, content: f.content, next: f.next, writer: f.writer },
@@ -875,51 +942,64 @@ async function saveAct() {
     }, { timeout: nf.length ? 150000 : 60000 });
     nf.forEach((x) => { if (x.fullUrl) st.full.set(x.id, x.fullUrl); });
     upsert(D().acts, r.act); setFiles('A:' + r.act.id, r.files);
+    f.id = r.act.id; f.files = r.files.map((x) => Object.assign({}, x, { isNew: false })); f.remove = [];
+    for (let i = 0; i < todo.length; i++) {
+      const rc = todo[i], rf = rc.files.filter((x) => x.isNew);
+      setSaving(true, '영수증 ' + (todo.length > 1 ? (i + 1) + '/' + todo.length + ' ' : '') + (rf.length ? '사진 올리는 중…' : '저장 중…'));
+      const rr = await api('saveRcp', {
+        rcp: { id: rc.id, team: f.team, actId: f.id, date: rc.dateAuto ? f.date : rc.date, amount: Number(rc.amount), store: rc.store, category: rc.category, item: rc.item, payer: rc.payer, method: rc.method, memo: rc.memo, writer: rc.writer || f.writer },
+        newFiles: rf.map((x) => ({ id: x.id, mime: x.mime, name: x.name, data: x.data, thumb: x.thumb })), removeFiles: rc.remove
+      }, { timeout: rf.length ? 150000 : 60000 });
+      rf.forEach((x) => { if (x.fullUrl) st.full.set(x.id, x.fullUrl); });
+      upsert(D().rcps, rr.rcp); setFiles('R:' + rr.rcp.id, rr.files);
+      Object.assign(rc, { isNew: false, dirty: false, dateAuto: false, date: rr.rcp.date, status: rr.rcp.status, reviewNote: rr.rcp.reviewNote || '', writer: rr.rcp.writer || '',
+        files: rr.files.map((x) => Object.assign({}, x, { isNew: false })), remove: [] });
+    }
+    for (const id of f.removeRcps.slice()) {
+      setSaving(true, '뺀 영수증 지우는 중…');
+      await api('deleteRcp', { id: id });
+      D().rcps = D().rcps.filter((x) => x.id !== id); setFiles('R:' + id, []);
+      f.removeRcps = f.removeRcps.filter((x) => x !== id);
+    }
     if (f.isNew) lsSet(LS.dAct, null);
     saveCache();
-    const wasNew = f.isNew;
+    const wasNew = f.isNew, n = todo.length;
     await closeAll();
+    if (D().role === 'team') st.tab = 'acts';
     render();
-    if (wasNew && D().role === 'team') offerReceipt(r.act); // 안내 창이 저장 완료도 알려 준다
-    else toast(wasNew ? '활동 기록을 저장했습니다' : '수정 내용을 저장했습니다');
+    toast((wasNew ? '활동 기록을 저장했습니다' : '수정 내용을 저장했습니다') + (n ? ' (영수증 ' + n + '건 제출)' : ''));
   } catch (e) {
+    saveCache(); render(); // 이미 저장된 것은 목록에 보이게
     setSaving(false);
     if (e instanceof AppErr && e.code === 'auth') { logout(e.message); return; }
-    formErr(e.message + (e instanceof NetErr ? ' 입력한 내용은 그대로 있으니 다시 저장을 눌러 주세요.' : ''));
+    formErr(e.message + (e instanceof NetErr ? ' 입력한 내용과 사진은 그대로 있으니 다시 저장을 눌러 주세요.' : ''));
   }
 }
-function offerReceipt(act) {
-  const w = openSheet(`${sheetHead('활동 기록을 저장했습니다')}<div class="sh-body"><p style="margin:0;font-size:16px">이번 활동(${fmtD(act.date)} ${esc(act.topic)})에 활동지원비를 썼다면 영수증도 지금 올려 두세요.</p></div>
-    <div class="sh-foot"><div class="btn-row"><button class="btn" data-act="closeSheet">나중에</button><button class="btn primary" data-act="rcpForAct" data-id="${esc(act.id)}">영수증 올리기</button></div></div>`, { label: '영수증 안내' });
-  return w;
-}
 
-/* ───── 영수증 입력 ───── */
-function openRcpForm(r, linkAct) {
-  const isNew = !r;
-  const draft = isNew ? lsGet(LS.dRcp, null) : null;
-  const base = r || (draft && draft.team === (D().team || {}).id ? draft : null) || {};
-  const me = lsGet(LS.me, '');
-  st.form = {
-    kind: 'rcp', id: r ? r.id : (base.id || rid('r')), isNew: isNew, team: r ? r.team : (D().team || {}).id,
-    date: base.date || (linkAct ? linkAct.date : todayStr()), amount: base.amount ? String(base.amount) : '', store: base.store || '',
-    category: base.category || '식비·다과', item: base.item || '', payer: base.payer || '', method: base.method || '', memo: base.memo || '', writer: base.writer || me,
-    status: r ? r.status : '', reviewNote: r ? r.reviewNote : '',
-    files: r ? filesOf('R:' + r.id).map((x) => Object.assign({}, x, { isNew: false })) : [], remove: []
-  };
-  const f = st.form;
+/* ───── 영수증 붙이기(활동 양식 위에 겹쳐 여는 양식) ───── */
+function openRcpSub(i) {
+  const parent = st.form;
+  if (!parent || parent.kind !== 'act') return;
+  const src = i >= 0 ? parent.rcps[i] : null;
+  if (src && D().role === 'team' && src.status === '확인') { toast('확인이 끝난 영수증은 고칠 수 없습니다. 고칠 내용은 교육팀에 알려 주세요.', 4000); return; }
+  if (!src && parent.rcps.length >= MAX_RCPS) { toast('영수증은 한 기록에 ' + MAX_RCPS + '건까지 붙일 수 있습니다.'); return; }
+  const f = Object.assign(src ? {} : { id: rid('r'), isNew: true, dirty: true, date: parent.date, dateAuto: true, amount: '', store: '', category: '식비·다과', item: '', payer: '', method: '', memo: '', writer: '', status: '', reviewNote: '', files: [], remove: [] },
+    src || {}, { kind: 'rcp', parent: parent, idx: i, team: parent.team });
+  f.files = f.files.slice(); f.remove = f.remove.slice(); // 「넣기」를 눌러야 활동 양식에 반영
+  if (f.dateAuto) f.date = parent.date;
+  st.form = f;
   const ms = members();
-  if (!f.payer && (!ms.length || ms.includes(me))) f.payer = me; // 결제한 사람은 팀원 버튼으로만 고르므로 팀원일 때만 미리 고름
+  const who = parent.writer || lsGet(LS.me, '');
+  if (!src && who && (!ms.length || ms.includes(who))) f.payer = who; // 결제한 사람은 팀원 버튼으로만 고르므로 팀원일 때만 미리 고름
   const amt = f.amount ? Number(f.amount).toLocaleString('ko-KR') : '';
-  openSheet(`${sheetHead(isNew ? '영수증 올리기' : '영수증 수정')}
+  f.el = openSheet(`${sheetHead(src ? '영수증 고치기' : '영수증 붙이기')}
   <form class="sh-body" id="rcp-form" autocomplete="off" novalidate>
     ${f.status === '보완요청' ? `<div class="status-box s-보완요청" style="margin:0 0 16px"><b>교육팀 보완 요청</b>${esc(f.reviewNote || '내용을 확인해 주세요.')}</div>` : ''}
-    ${draft && isNew && (draft.store || draft.amount) ? `<div class="notice info" style="margin:0 0 16px;width:100%"><span class="grow">작성하던 내용을 불러왔습니다.</span><button type="button" class="btn ghost" data-act="clearDraft" data-k="rcp" style="height:32px">지우기</button></div>` : ''}
     <div class="field"><span class="lbl">영수증 사진<span class="req">*</span> <span id="photo-count" class="num" style="color:var(--mute);font-weight:500"></span></span>
       <div class="cam-row"><label class="btn primary" for="pick-cam" data-pick role="button" tabindex="0">${ICON.camera}사진 찍기</label><label class="btn" for="pick-file" data-pick role="button" tabindex="0">${ICON.image}앨범·파일</label></div>
       <div class="photos" id="photos"></div><p class="hint">영수증 전체가 보이게 찍어 주세요. 카드 전표가 따로 있으면 같이 올려 주세요(4장까지, PDF 가능).</p></div>
     <div class="field"><label for="r-amount">금액<span class="req">*</span></label><div class="amount-wrap"><input id="r-amount" class="in amount" inputmode="numeric" data-f="amount" value="${esc(amt)}" placeholder="0"></div></div>
-    <div class="field"><label for="r-date">사용일<span class="req">*</span></label><input id="r-date" class="in" type="date" data-f="date" value="${esc(f.date)}"></div>
+    <div class="field"><label for="r-date">사용일<span class="req">*</span></label><input id="r-date" class="in" type="date" data-f="date" value="${esc(f.date)}"><p class="hint">활동 날짜로 미리 넣었습니다. 영수증 날짜가 다르면 바꿔 주세요.</p></div>
     <div class="field"><label for="r-store">사용처<span class="req">*</span></label><input id="r-store" class="in" data-f="store" value="${esc(f.store)}" placeholder="가게 이름" maxlength="100"></div>
     <div class="field"><span class="lbl">분류</span><div class="chips">${CATS.map((x) => `<button type="button" class="chip" data-act="chip" data-k="category" data-v="${esc(x)}" aria-pressed="${f.category === x}">${esc(x)}</button>`).join('')}</div></div>
     <div class="field"><label for="r-item">산 것·쓴 곳</label><input id="r-item" class="in" data-f="item" value="${esc(f.item)}" placeholder="예) 스터디 간식, 자료 인쇄 50부" maxlength="500"></div>
@@ -927,53 +1007,39 @@ function openRcpForm(r, linkAct) {
       ${ms.length ? '' : `<div class="inline-add"><input id="r-payer" class="in" data-f="payer" value="${esc(f.payer)}" placeholder="이름"></div>`}</div>
     <div class="field"><span class="lbl">결제 수단</span><div class="chips">${METHODS.map((x) => `<button type="button" class="chip" data-act="chip" data-k="method" data-v="${esc(x)}" aria-pressed="${f.method === x}">${esc(x)}</button>`).join('')}</div></div>
     <div class="field"><label for="r-memo">메모</label><textarea id="r-memo" class="in" data-f="memo" style="min-height:70px" placeholder="교육팀에 전할 말이 있으면 적어 주세요.">${esc(f.memo)}</textarea></div>
-    <div class="field"><label for="r-writer">작성자</label><input id="r-writer" class="in" data-f="writer" list="writer-list2" value="${esc(f.writer)}" placeholder="이름"><datalist id="writer-list2">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
   </form>
-  <div class="sh-foot"><p class="err-msg hidden" id="form-err"></p><button class="btn primary block" data-act="saveRcp" id="save-btn">${isNew ? '영수증 제출' : f.status === '보완요청' ? '고쳐서 다시 제출' : '수정 내용 저장'}</button></div>`, { full: true, label: '영수증', onClose: () => { st.form = null; } });
+  <div class="sh-foot"><p class="err-msg hidden" id="form-err"></p><div class="btn-row">${src ? '<button class="btn danger" data-act="dropSubRcp" style="flex:0 0 auto;height:54px">빼기</button>' : ''}<button class="btn primary" data-act="applySubRcp" id="save-btn" style="flex:1 1 0;height:54px;font-size:17px">${src ? '고친 내용 넣기' : '이 영수증 붙이기'}</button></div></div>`,
+  { full: true, label: '영수증', onClose: () => { if (st.form === f) st.form = parent; drawRcps(); saveDraftSoon(); } });
   drawPayer(); drawPhotos();
 }
 function drawPayer() {
-  const f = st.form, box = $('#payer-chips');
+  const f = st.form, box = fq('#payer-chips');
   if (!f || !box) return;
   const ms = members();
   const list = ms.length && f.payer && !ms.includes(f.payer) ? ms.concat(f.payer) : ms; // 팀원 목록에 없는 예전 값도 보이게
   box.innerHTML = list.map((n) => `<button type="button" class="chip" data-act="setPayer" data-v="${esc(n)}" aria-pressed="${f.payer === n}">${esc(n)}</button>`).join('');
   box.classList.toggle('hidden', !list.length);
 }
-async function saveRcp() {
+// 영수증 양식 → 활동 양식 목록에 넣기(서버 저장은 활동 기록을 저장할 때 함께)
+function applySubRcp() {
   const f = st.form;
-  if (!f) return;
+  if (!f || f.kind !== 'rcp') return;
   const amount = Number(String(f.amount).replace(/\D/g, ''));
-  if (!amount) { formErr('금액을 넣어 주세요.'); $('#r-amount').focus(); return; }
+  if (!amount) { formErr('금액을 넣어 주세요.'); fq('#r-amount').focus(); return; }
   if (!f.date) { formErr('사용일을 넣어 주세요.'); return; }
-  if (!f.store.trim()) { formErr('사용처(가게 이름)를 적어 주세요.'); $('#r-store').focus(); return; }
-  formErr('');
-  if (!f.files.length) {
-    const go = await ask('영수증 사진 없이 저장할까요? 사진은 나중에 수정에서 추가할 수 있습니다.', '사진 없이 저장');
-    if (!go) return;
-  }
-  const nf = f.files.filter((x) => x.isNew);
-  setSaving(true, nf.length ? '사진 올리는 중…' : '저장 중…');
-  if (f.writer) lsSet(LS.me, f.writer);
-  try {
-    const r = await api('saveRcp', {
-      rcp: { id: f.id, team: f.team, date: f.date, amount: amount, store: f.store, category: f.category, item: f.item, payer: f.payer, method: f.method, memo: f.memo, writer: f.writer },
-      newFiles: nf.map((x) => ({ id: x.id, mime: x.mime, name: x.name, data: x.data, thumb: x.thumb })), removeFiles: f.remove
-    }, { timeout: nf.length ? 150000 : 60000 });
-    nf.forEach((x) => { if (x.fullUrl) st.full.set(x.id, x.fullUrl); });
-    upsert(D().rcps, r.rcp); setFiles('R:' + r.rcp.id, r.files);
-    if (f.isNew) lsSet(LS.dRcp, null);
-    saveCache();
-    const wasNew = f.isNew;
-    await closeAll();
-    if (D().role === 'team') st.tab = 'rcps';
-    render();
-    toast(wasNew ? '영수증을 제출했습니다' : '수정 내용을 저장했습니다');
-  } catch (e) {
-    setSaving(false);
-    if (e instanceof AppErr && e.code === 'auth') { logout(e.message); return; }
-    formErr(e.message + (e instanceof NetErr ? ' 입력한 내용과 사진은 그대로 있으니 다시 눌러 주세요.' : ''));
-  }
+  if (!f.store.trim()) { formErr('사용처(가게 이름)를 적어 주세요.'); fq('#r-store').focus(); return; }
+  const r = {};
+  Object.keys(f).forEach((k) => { if (!['kind', 'parent', 'idx', 'team', 'el'].includes(k)) r[k] = f[k]; });
+  r.amount = String(amount); r.dirty = true;
+  if (f.idx >= 0) f.parent.rcps[f.idx] = r; else f.parent.rcps.push(r);
+  closeSheet();
+}
+async function dropSubRcp() {
+  const f = st.form;
+  if (!f || f.kind !== 'rcp') return;
+  if (!(await ask('이 영수증을 기록에서 뺄까요? 기록을 저장하면 영수증과 사진이 지워집니다.', '빼기', true))) return;
+  if (f.idx >= 0) { const r = f.parent.rcps.splice(f.idx, 1)[0]; if (r && !r.isNew) f.parent.removeRcps.push(r.id); }
+  closeSheet();
 }
 
 /* ───── 상세 보기 ───── */
@@ -982,12 +1048,30 @@ function photoGrid(owner) {
   if (!fs.length) return '';
   return `<div class="photos">${fs.map((x) => `<button class="ph" data-act="view" data-id="${esc(x.id)}" ${safeImg(x.thumb) ? `style="background-image:url('${safeImg(x.thumb)}')"` : ''} aria-label="사진 크게 보기">${x.mime === 'application/pdf' ? '<span class="pdf">PDF</span>' : ''}</button>`).join('')}</div>`;
 }
-function openAct(id) {
-  const a = D().acts.find((x) => x.id === id);
-  if (!a) { toast('기록을 찾을 수 없습니다.'); return; }
-  const mine = D().role === 'admin' || (D().team && a.team === D().team.id);
-  openSheet(`${sheetHead('활동 기록')}<div class="sh-body">
-    <p style="margin:0"><span class="tag ${a.type === '자율스터디' ? 'study' : ''}">${esc(a.type)}</span>${D().role === 'admin' || !mine ? `<span class="tag team">${esc(teamName(a.team))}</span>` : ''}</p>
+// 활동 상세 안의 영수증 한 건: 교육팀은 여기서 확인·보완 요청, 팀은 보완 요청을 받으면 여기서 고치기
+function rcpCard(r, a) {
+  const isAdmin = D().role === 'admin';
+  const note = r.status === '보완요청' ? `<div class="status-box s-보완요청"><b>교육팀 보완 요청</b>${esc(r.reviewNote || '내용을 확인해 주세요.')}</div>`
+    : r.status === '확인' && r.reviewNote ? `<div class="status-box s-확인"><b>교육팀 메모</b>${esc(r.reviewNote)}</div>`
+    : r.status === '제출' && r.reviewNote ? `<p class="rc-meta">이전 보완 요청: ${esc(r.reviewNote)}</p>` : '';
+  const tail = isAdmin ? `<div class="rv"><label for="rv-${esc(r.id)}" class="sr">교육팀 메모</label><input id="rv-${esc(r.id)}" class="in" placeholder="보완 요청 내용(팀에 보입니다)" value="${esc(r.status === '보완요청' ? r.reviewNote || '' : '')}">
+      <div class="btn-row"><button class="btn warn" data-act="review" data-id="${esc(r.id)}" data-s="보완요청">보완 요청</button><button class="btn ok" data-act="review" data-id="${esc(r.id)}" data-s="확인">확인 완료</button></div>
+      ${r.status !== '제출' ? `<button class="btn ghost" data-act="review" data-id="${esc(r.id)}" data-s="제출">확인 대기로 되돌리기</button>` : ''}</div>`
+    : r.status === '보완요청' ? `<button class="btn warn block" style="margin-top:10px" data-act="fixRcp" data-id="${esc(a.id)}" data-rid="${esc(r.id)}">고쳐서 다시 제출</button>` : '';
+  return `<div class="rc-card" data-rid="${esc(r.id)}">
+    <div class="rc-top"><div><b class="rc-amt">${won(r.amount)}</b><span class="rc-store">${esc(r.store)}</span></div><span class="pill p-${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span></div>
+    <p class="rc-meta">${fmtD(r.date)} ${esc(r.category || '')}${r.item ? ', ' + esc(r.item) : ''}</p>
+    ${r.payer || r.method ? `<p class="rc-meta">결제: ${esc([r.payer, r.method].filter(Boolean).join(', '))}</p>` : ''}
+    ${r.memo ? `<p class="rc-meta">메모: ${esc(r.memo)}</p>` : ''}
+    ${filesOf('R:' + r.id).length ? photoGrid('R:' + r.id) : '<p class="rc-meta miss">영수증 사진이 없습니다.</p>'}
+    ${note}${tail}</div>`;
+}
+function actDetailHtml(a) {
+  const d = D();
+  const mine = d.role === 'admin' || (d.team && a.team === d.team.id);
+  const rcs = rcpsOf(a.id);
+  return `${sheetHead('활동 기록')}<div class="sh-body">
+    <p style="margin:0"><span class="tag ${a.type === '자율스터디' ? 'study' : ''}">${esc(a.type)}</span>${d.role === 'admin' || !mine ? `<span class="tag team">${esc(teamName(a.team))}</span>` : ''}</p>
     <h3 class="d-title">${esc(a.topic || '(주제 없음)')}</h3>
     <p class="d-sub">${fmtD(a.date, true)}${a.start && a.end ? ` ${a.start}–${a.end}` : ''}${a.hours ? ` (${hoursText(a.hours)})` : ''}</p>
     <dl class="kv">
@@ -998,36 +1082,17 @@ function openAct(id) {
     ${a.content ? `<div class="block"><h3>논의한 내용</h3><div class="txt">${esc(a.content)}</div></div>` : ''}
     ${a.next ? `<div class="block"><h3>다음에 할 일</h3><div class="txt">${esc(a.next)}</div></div>` : ''}
     ${filesOf('A:' + a.id).length ? `<div class="block"><h3>사진</h3>${photoGrid('A:' + a.id)}</div>` : ''}
+    ${rcs.length ? `<div class="block" id="d-rcps"><h3>영수증 ${rcs.length}건, ${won(sum(rcs.map((r) => r.amount)))}</h3>${rcs.map((r) => rcpCard(r, a)).join('')}</div>` : ''}
     <p class="hint" style="margin-top:16px;color:var(--mute);font-size:12px">작성 ${esc(a.created || '')}${a.updated && a.updated !== a.created ? ', 수정 ' + esc(a.updated) : ''}</p>
   </div>
-  ${mine ? `<div class="sh-foot"><div class="btn-row"><button class="btn danger" data-act="delAct" data-id="${esc(a.id)}">삭제</button><button class="btn primary" data-act="editAct" data-id="${esc(a.id)}">수정</button></div></div>` : ''}`, { label: '활동 기록' });
+  ${mine ? `<div class="sh-foot"><div class="btn-row"><button class="btn danger" data-act="delAct" data-id="${esc(a.id)}" style="flex:0 0 auto">삭제</button><button class="btn primary" data-act="editAct" data-id="${esc(a.id)}">${rcs.length ? '수정·영수증 고치기' : '수정·영수증 붙이기'}</button></div></div>` : ''}`;
 }
-function openRcp(id) {
-  const r = D().rcps.find((x) => x.id === id);
-  if (!r) { toast('영수증을 찾을 수 없습니다.'); return; }
-  const isAdmin = D().role === 'admin';
-  const fs = filesOf('R:' + r.id);
-  const locked = r.status === '확인' && !isAdmin;
-  const w = openSheet(`${sheetHead('영수증')}<div class="sh-body">
-    ${isAdmin ? `<p style="margin:0 0 6px"><span class="tag team">${esc(teamName(r.team))}</span></p>` : ''}
-    <p class="d-amount">${won(r.amount)}</p><h3 class="d-title" style="font-size:18px">${esc(r.store)}</h3>
-    <p class="d-sub">${fmtD(r.date, true)} ${esc(r.category || '')}</p>
-    <div class="status-box s-${esc(r.status)}"><b>${STATUS_LABEL[r.status] || esc(r.status)}</b>${r.status === '제출' ? '교육팀이 확인하기 전입니다.' + (r.reviewNote ? `<br><small>이전 보완 요청: ${esc(r.reviewNote)}</small>` : '') : esc(r.reviewNote || (r.status === '확인' ? '정산 확인이 끝났습니다.' : ''))}${r.reviewed && r.status !== '제출' ? `<br><small>${esc(r.reviewed)}</small>` : ''}</div>
-    <div class="block" id="rcp-imgs">${fs.length ? fs.map((x) => `<div data-full="${esc(x.id)}" data-mime="${esc(x.mime)}"><div class="loading-img">사진 불러오는 중…</div></div>`).join('') : '<div class="notice" style="margin:0;width:100%">영수증 사진이 없습니다.</div>'}</div>
-    <dl class="kv">
-      <div><dt>산 것</dt><dd>${esc(r.item || '-')}</dd></div>
-      <div><dt>결제</dt><dd>${esc([r.payer, r.method].filter(Boolean).join(', ') || '-')}</dd></div>
-      ${r.memo ? `<div><dt>메모</dt><dd>${esc(r.memo)}</dd></div>` : ''}
-      <div><dt>작성자</dt><dd>${esc(r.writer || '-')}</dd></div>
-    </dl>
-    <p class="hint" style="margin-top:16px;color:var(--mute);font-size:12px">제출 ${esc(r.created || '')}${r.updated && r.updated !== r.created ? ', 수정 ' + esc(r.updated) : ''}</p>
-  </div>
-  <div class="sh-foot">${isAdmin ? `<div class="field" style="margin:0 0 10px"><label for="rv-note" class="sr">교육팀 메모</label><input id="rv-note" class="in" style="min-height:44px;font-size:16px" placeholder="보완 요청 내용(팀에 보입니다)" value="${esc(r.status === '보완요청' ? r.reviewNote || '' : '')}"></div>
-      <div class="btn-row"><button class="btn warn" data-act="review" data-id="${esc(r.id)}" data-s="보완요청">보완 요청</button><button class="btn ok" data-act="review" data-id="${esc(r.id)}" data-s="확인">확인 완료</button></div>
-      <div class="btn-row" style="margin-top:8px"><button class="btn ghost" data-act="review" data-id="${esc(r.id)}" data-s="제출" ${r.status === '제출' ? 'disabled' : ''}>확인 대기로 되돌리기</button><button class="btn ghost" data-act="editRcp" data-id="${esc(r.id)}">내용 고치기</button></div>`
-    : locked ? `<p class="hint" style="margin:0;text-align:center">확인이 끝난 영수증은 고칠 수 없습니다. 고칠 내용은 교육팀에 알려 주세요.</p>`
-    : `<div class="btn-row"><button class="btn danger" data-act="delRcp" data-id="${esc(r.id)}">삭제</button><button class="btn primary" data-act="editRcp" data-id="${esc(r.id)}">${r.status === '보완요청' ? '고쳐서 다시 제출' : '수정'}</button></div>`}</div>`, { label: '영수증' });
-  loadFullImages(w);
+function openAct(id, toRcps) {
+  const a = D().acts.find((x) => x.id === id);
+  if (!a) { toast('기록을 찾을 수 없습니다.'); return; }
+  const w = openSheet(actDetailHtml(a), { label: '활동 기록', rerender: () => { const x = D().acts.find((y) => y.id === id); return x ? actDetailHtml(x) : null; } });
+  const box = toRcps && w.querySelector('.rc-card .status-box.s-보완요청');
+  if (box) box.closest('.rc-card').scrollIntoView({ block: 'start' });
 }
 async function getFull(id) {
   if (st.full.has(id)) return st.full.get(id);
@@ -1037,21 +1102,6 @@ async function getFull(id) {
   const url = URL.createObjectURL(new Blob([u8], { type: r.mime }));
   st.full.set(id, url);
   return url;
-}
-async function loadFullImages(w) {
-  for (const box of w.querySelectorAll('[data-full]')) {
-    const id = box.dataset.full, mime = box.dataset.mime;
-    try {
-      const url = await getFull(id);
-      if (!w.isConnected) return;
-      box.innerHTML = mime === 'application/pdf'
-        ? `<a class="btn block" href="${url}" target="_blank" rel="noopener" download="영수증.pdf" style="margin-bottom:10px">PDF 영수증 열기</a>`
-        : `<button class="ph" style="aspect-ratio:auto;width:100%;background:none" data-act="view" data-id="${esc(id)}" aria-label="크게 보기"><img class="full-img" src="${url}" alt="영수증 사진"></button>`;
-    } catch (e) {
-      if (!w.isConnected) return;
-      box.innerHTML = `<div class="loading-img">사진을 불러오지 못했습니다. <button class="btn ghost" data-act="reloadImgs">다시</button></div>`;
-    }
-  }
 }
 async function viewPhoto(id) {
   const f = D().files.find((x) => x.id === id);
@@ -1071,13 +1121,14 @@ async function viewPhoto(id) {
 function renderAdmin() {
   const d = D();
   const waitN = d.rcps.filter((r) => r.status === '제출').length;
+  if (!['dash', 'acts', 'set'].includes(st.atab)) st.atab = 'acts';
   app().innerHTML = `<header class="admin-band"><div class="admin-main" style="padding-top:0;padding-bottom:0">
     <div class="band-top"><span class="course">${esc(d.settings.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="adminMenu" aria-label="관리자 메뉴">${ICON.more}</button></div>
     <h1>교육팀 관리</h1>
     <nav class="atabs" role="tablist">
-      ${[['dash', '팀별 현황'], ['rcps', '영수증'], ['acts', '활동 기록'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'rcps' && waitN ? `<span class="cnt">${waitN}</span>` : ''}</button>`).join('')}
+      ${[['dash', '팀별 현황'], ['acts', '활동 기록'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'acts' && waitN ? `<span class="cnt">${waitN}</span>` : ''}</button>`).join('')}
     </nav></div></header>
-  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'rcps' ? adminRcps() : st.atab === 'acts' ? adminActs() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
+  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'acts' ? adminActs() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
 }
 function adminDash() {
   const d = D(), goal = d.settings.studyGoal;
@@ -1094,9 +1145,11 @@ function adminDash() {
   }).join('')}
   <div class="totals"><span>전체 사용 <b>${won(tot.spent)}</b> / 예산 ${won(tot.budget)}</span><span>확인 완료 <b>${won(tot.ok)}</b></span><span>활동 기록 <b>${tot.acts}건</b></span><span>확인 대기 <b>${tot.wait}건</b></span></div></div>`;
 }
-function teamDetail(id) {
-  const t = teamOf(id), s = teamStats(id), att = attendance(id), set = D().settings;
-  openSheet(`${sheetHead(t.name + ' 현황')}<div class="sh-body">
+function teamDetailHtml(id) {
+  const t = teamOf(id);
+  if (!t) return null;
+  const s = teamStats(id), att = attendance(id), set = D().settings;
+  return `${sheetHead(t.name + ' 현황')}<div class="sh-body">
     <p class="d-sub" style="margin:0 0 12px">${esc(t.project)}</p>
     <dl class="kv">
       <div><dt>활동비</dt><dd>${won(s.spent)} 사용 / ${won(s.budget)} (${s.remain < 0 ? '초과 ' + won(-s.remain) : '잔액 ' + won(s.remain)})</dd></div>
@@ -1106,25 +1159,26 @@ function teamDetail(id) {
     </dl>
     <div class="block"><h3>자율스터디 참석 시간 (공가 확인용, 회당 인정 ${set.studyHours}시간)</h3>
       ${att.length ? `<table class="att-table"><thead><tr><th>이름</th><th class="r">참석</th><th class="r">기록 시간</th><th class="r">인정 시간</th></tr></thead><tbody>${att.map((x) => `<tr><td>${esc(x.name)}</td><td class="r">${x.count}회</td><td class="r">${hoursText(x.hours)}</td><td class="r">${hoursText(Math.min(x.count, set.studyGoal) * set.studyHours)}</td></tr>`).join('')}</tbody></table><p class="hint">인정 시간 = 참석 횟수(목표 ${set.studyGoal}회까지) × ${set.studyHours}시간. 실제 공가 처리 기준에 맞춰 확인해 주세요.</p>` : '<p class="hint">자율스터디 기록이 아직 없습니다.</p>'}</div>
-    <div class="block"><h3>활동 기록</h3>${s.acts.length ? `<div class="list" style="margin:0">${s.acts.slice().sort(byDateDesc).map((a) => actRow(a)).join('')}</div>` : '<p class="hint">없음</p>'}</div>
-    <div class="block"><h3>영수증</h3>${s.rcps.length ? `<div class="list" style="margin:0">${s.rcps.slice().sort(byDateDesc).map((r) => rcpRow(r)).join('')}</div>` : '<p class="hint">없음</p>'}</div>
-  </div><div class="sh-foot"><div class="btn-row"><button class="btn" data-act="printTeam" data-id="${esc(id)}">영수증 인쇄</button><button class="btn" data-act="copyLink" data-id="${esc(id)}">팀 링크 복사</button></div></div>`, { label: t.name + ' 현황' });
+    <div class="block"><h3>활동 기록(붙은 영수증 포함)</h3>${s.acts.length ? `<div class="list" style="margin:0">${s.acts.slice().sort(byDateDesc).map((a) => actRow(a)).join('')}</div>` : '<p class="hint">없음</p>'}</div>
+  </div><div class="sh-foot"><div class="btn-row"><button class="btn" data-act="printTeam" data-id="${esc(id)}">영수증 인쇄</button><button class="btn" data-act="copyLink" data-id="${esc(id)}">팀 링크 복사</button></div></div>`;
 }
-function adminRcps() {
-  const d = D(), f = st.af;
-  const match = (r) => (f.team === 'all' || r.team === f.team) && (f.status === 'all' || (f.status === 'wait' ? r.status === '제출' : r.status === f.status));
-  const list = d.rcps.filter(match).sort(byDateDesc);
-  const cnt = (s) => d.rcps.filter((r) => (f.team === 'all' || r.team === f.team) && (s === 'all' || (s === 'wait' ? r.status === '제출' : r.status === s))).length;
-  return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((t) => [t.id, t.name])).map(([k, l]) => `<button class="chip" data-act="af" data-k="team" data-v="${esc(k)}" aria-pressed="${f.team === k}">${esc(l)}</button>`).join('')}</div>
-  <div class="filters">${[['wait', '확인 대기'], ['보완요청', '보완 요청'], ['확인', '확인 완료'], ['all', '전체']].map(([k, l]) => `<button class="chip" data-act="af" data-k="status" data-v="${k}" aria-pressed="${f.status === k}">${l} ${cnt(k)}</button>`).join('')}</div>
-  <div class="tools">${f.team !== 'all' ? `<button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${esc(teamName(f.team))} 영수증 인쇄</button>` : '<button class="btn" data-act="printTeam" data-id="all">전체 영수증 인쇄</button>'}<span class="sm" style="align-self:center;color:var(--slate);font-size:14px">합계 <b class="num">${won(sum(list.map((r) => r.amount)))}</b></span></div>
-  ${list.length ? `<div class="list" style="margin:0">${list.map((r) => rcpRow(r, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : '해당하는 영수증이 없습니다.'}</div></div>`}`;
+function teamDetail(id) {
+  const html = teamDetailHtml(id);
+  if (html) openSheet(html, { label: teamName(id) + ' 현황', rerender: () => teamDetailHtml(id) });
 }
+// 활동 기록 탭: 팀과 영수증 상태로 거르고, 활동 상세 안에서 영수증을 확인한다
 function adminActs() {
-  const d = D();
-  const list = d.acts.filter((a) => st.actf === 'all' || a.team === st.actf).sort(byDateDesc);
-  return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((t) => [t.id, t.name])).map(([k, l]) => `<button class="chip" data-act="actf" data-v="${esc(k)}" aria-pressed="${st.actf === k}">${esc(l)}</button>`).join('')}</div>
-  ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : '<div class="list" style="margin:0"><div class="empty">활동 기록이 없습니다.</div></div>'}`;
+  const d = D(), f = st.af;
+  const inTeam = (x) => f.team === 'all' || x.team === f.team;
+  const isSt = (r, k) => (k === 'wait' ? r.status === '제출' : r.status === k);
+  const list = d.acts.filter((a) => inTeam(a) && (f.status === 'all' || rcpsOf(a.id).some((r) => isSt(r, f.status)))).sort(byDateDesc);
+  const cnt = (k) => d.rcps.filter((r) => inTeam(r) && isSt(r, k)).length;
+  const total = sum(list.map((a) => sum(rcpsOf(a.id).filter((r) => f.status === 'all' || isSt(r, f.status)).map((r) => r.amount))));
+  const stName = { all: '영수증', wait: '확인 대기 영수증', '보완요청': '보완 요청 영수증', '확인': '확인 완료 영수증' };
+  return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((t) => [t.id, t.name])).map(([k, l]) => `<button class="chip" data-act="af" data-k="team" data-v="${esc(k)}" aria-pressed="${f.team === k}">${esc(l)}</button>`).join('')}</div>
+  <div class="filters">${[['all', '전체'], ['wait', '확인 대기'], ['보완요청', '보완 요청'], ['확인', '확인 완료']].map(([k, l]) => `<button class="chip" data-act="af" data-k="status" data-v="${k}" aria-pressed="${f.status === k}">${l}${k === 'all' ? '' : ' ' + cnt(k)}</button>`).join('')}</div>
+  <div class="tools"><button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))} 영수증 인쇄</button><span class="sm" style="align-self:center;color:var(--slate);font-size:14px">기록 ${list.length}건, ${stName[f.status] || '영수증'} 합계 <b class="num">${won(total)}</b></span></div>
+  ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : f.status === 'all' ? '활동 기록이 없습니다.' : '해당하는 기록이 없습니다.'}</div></div>`}`;
 }
 function adminSet() {
   const d = D(), s = d.settings;
@@ -1151,7 +1205,7 @@ function adminSet() {
 }
 function guideText(t) {
   const set = D().settings;
-  return `[${set.courseName || 'AI프론티어'}] ${t.name} 활동 기록·영수증 제출 링크\n${teamLink(t)}\n\n- 링크를 누르면 바로 ${t.name} 화면이 열립니다.\n- 스터디·회의가 끝나면 [활동 기록], 활동지원비를 쓰면 [영수증 올리기]로 사진을 올려 주세요.\n- 링크 없이 열리면 팀을 고르고 팀 코드 ${t.code} 를 넣으면 됩니다.\n- 이 링크와 코드는 우리 팀 안에서만 공유해 주세요.`;
+  return `[${set.courseName || 'AI프론티어'}] ${t.name} 활동 기록 링크\n${teamLink(t)}\n\n- 링크를 누르면 바로 ${t.name} 화면이 열립니다.\n- 스터디·회의가 끝나면 [활동 기록하기]로 남겨 주세요. 활동지원비를 썼다면 그 기록 안에서 영수증 사진을 붙이면 됩니다.\n- 링크 없이 열리면 팀을 고르고 팀 코드 ${t.code} 를 넣으면 됩니다.\n- 이 링크와 코드는 우리 팀 안에서만 공유해 주세요.`;
 }
 function adminMenu() {
   openSheet(`${sheetHead('관리자 메뉴')}<div class="sh-body"><div class="btn-row" style="flex-direction:column">
@@ -1224,18 +1278,24 @@ function exportXlsx() {
   const sortT = (a, b) => (teamOrder.get(a.team) - teamOrder.get(b.team)) || a.date.localeCompare(b.date);
   const sumRows = [['팀', '프로젝트', '예산', '사용', '잔액', '확인 완료 금액', '영수증 수', '확인 대기', '보완 요청', '활동 기록', '자율스터디 횟수', '활동 시간']];
   d.teams.forEach((t) => { const s = teamStats(t.id); sumRows.push([t.name, t.project, s.budget, s.spent, s.remain, s.okAmt, s.rcps.length, s.wait, s.fix, s.acts.length, s.study.length, Math.round(s.hours * 100) / 100]); });
-  const rcRows = [['팀', '사용일', '사용처', '분류', '산 것', '금액', '결제한 사람', '결제 수단', '상태', '교육팀 메모', '작성자', '제출 시각', '사진 수', '메모']];
-  d.rcps.slice().sort(sortT).forEach((r) => {
-    rcRows.push([teamName(r.team), r.date, r.store, r.category, r.item, r.amount, r.payer, r.method, STATUS_LABEL[r.status] || r.status, r.reviewNote, r.writer, r.created, filesOf('R:' + r.id).length, r.memo]);
+  const actOf = new Map(d.acts.map((a) => [a.id, a]));
+  const actDate = (r) => (actOf.get(r.actId) || {}).date || '';
+  const rcRows = [['팀', '활동 날짜', '활동 주제', '사용일', '사용처', '분류', '산 것', '금액', '결제한 사람', '결제 수단', '상태', '교육팀 메모', '작성자', '제출 시각', '사진 수', '메모']];
+  d.rcps.slice().sort((a, b) => (teamOrder.get(a.team) - teamOrder.get(b.team)) || actDate(a).localeCompare(actDate(b)) || a.date.localeCompare(b.date)).forEach((r) => {
+    const a = actOf.get(r.actId) || {};
+    rcRows.push([teamName(r.team), a.date || '', a.topic || '', r.date, r.store, r.category, r.item, r.amount, r.payer, r.method, STATUS_LABEL[r.status] || r.status, r.reviewNote, r.writer, r.created, filesOf('R:' + r.id).length, r.memo]);
   });
-  const acRows = [['팀', '날짜', '유형', '시작', '종료', '시간', '장소', '참석자', '참석 인원', '주제', '논의한 내용', '다음에 할 일', '작성자', '사진 수']];
-  d.acts.slice().sort(sortT).forEach((a) => acRows.push([teamName(a.team), a.date, a.type, a.start, a.end, a.hours, a.place, (a.attendees || []).join(', '), (a.attendees || []).length, a.topic, a.content, a.next, a.writer, filesOf('A:' + a.id).length]));
+  const acRows = [['팀', '날짜', '유형', '시작', '종료', '시간', '장소', '참석자', '참석 인원', '주제', '논의한 내용', '다음에 할 일', '작성자', '사진 수', '영수증 수', '영수증 금액']];
+  d.acts.slice().sort(sortT).forEach((a) => {
+    const rc = rcpsOf(a.id);
+    acRows.push([teamName(a.team), a.date, a.type, a.start, a.end, a.hours, a.place, (a.attendees || []).join(', '), (a.attendees || []).length, a.topic, a.content, a.next, a.writer, filesOf('A:' + a.id).length, rc.length, sum(rc.map((r) => r.amount))]);
+  });
   const atRows = [['팀', '이름', '자율스터디 참석', '기록 시간', '인정 시간(목표 횟수까지 × 회당 시간)']];
   d.teams.forEach((t) => attendance(t.id).forEach((x) => atRows.push([t.name, x.name, x.count, Math.round(x.hours * 100) / 100, Math.min(x.count, set.studyGoal) * set.studyHours])));
   const blob = buildXlsx([
     { name: '팀별 요약', rows: sumRows, widths: [12, 16, 12, 12, 12, 14, 10, 10, 10, 10, 14, 10], money: [2, 3, 4, 5] },
-    { name: '영수증', rows: rcRows, widths: [10, 12, 18, 11, 22, 11, 11, 10, 10, 22, 10, 18, 8, 22], money: [5] },
-    { name: '활동 기록', rows: acRows, widths: [10, 12, 10, 7, 7, 7, 16, 26, 9, 26, 50, 36, 10, 8] },
+    { name: '영수증', rows: rcRows, widths: [10, 12, 26, 12, 18, 11, 22, 11, 11, 10, 10, 22, 10, 18, 8, 22], money: [7] },
+    { name: '활동 기록', rows: acRows, widths: [10, 12, 10, 7, 7, 7, 16, 26, 9, 26, 50, 36, 10, 8, 9, 12], money: [15] },
     { name: '자율스터디 참석', rows: atRows, widths: [10, 12, 14, 12, 30] }
   ]);
   const a = document.createElement('a');
@@ -1253,15 +1313,17 @@ async function printTeam(id) {
   const p = document.createElement('div');
   p.id = 'print';
   let html = '';
+  const actOf = new Map(d.acts.map((a) => [a.id, a]));
+  const actTxt = (r) => { const a = actOf.get(r.actId); return a ? fmtD(a.date) + ' ' + esc(a.topic) : ''; };
   teams.forEach((t) => {
     const rc = d.rcps.filter((r) => r.team === t.id).sort((a, b) => a.date.localeCompare(b.date));
     const s = teamStats(t.id);
     html += `<section style="break-after:page;page-break-after:always"><h1>${esc(d.settings.courseName)} ${esc(t.name)} 활동지원비 사용 내역</h1>
       <p class="p-meta">${esc(t.project)}, 예산 ${won(s.budget)}, 사용 ${won(s.spent)}, 잔액 ${won(s.remain)} (출력 ${todayStr()})</p>
-      <table><thead><tr><th>#</th><th>사용일</th><th>사용처</th><th>분류</th><th>산 것</th><th class="r">금액</th><th>결제</th><th>상태</th></tr></thead><tbody>
-      ${rc.map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.date)}</td><td>${esc(r.store)}</td><td>${esc(r.category)}</td><td>${esc(r.item)}</td><td class="r">${won(r.amount)}</td><td>${esc([r.payer, r.method].filter(Boolean).join(', '))}</td><td>${STATUS_LABEL[r.status] || esc(r.status)}</td></tr>`).join('')}
-      <tr><td colspan="5"><b>합계</b></td><td class="r"><b>${won(s.spent)}</b></td><td colspan="2"></td></tr></tbody></table>
-      ${rc.map((r, i) => `<div class="p-rcp"><h2>${i + 1}. ${esc(r.date)} ${esc(r.store)} ${won(r.amount)}</h2><p>${esc(r.category)} ${esc(r.item)}</p>
+      <table><thead><tr><th>#</th><th class="nw">사용일</th><th>활동</th><th>사용처</th><th>분류·산 것</th><th class="r nw">금액</th><th>결제</th><th class="nw">상태</th></tr></thead><tbody>
+      ${rc.map((r, i) => `<tr><td>${i + 1}</td><td class="nw">${esc(r.date)}</td><td>${actTxt(r)}</td><td>${esc(r.store)}</td><td>${esc([r.category, r.item].filter(Boolean).join(', '))}</td><td class="r nw">${won(r.amount)}</td><td>${esc([r.payer, r.method].filter(Boolean).join(', '))}</td><td class="nw">${STATUS_LABEL[r.status] || esc(r.status)}</td></tr>`).join('')}
+      <tr><td colspan="5"><b>합계</b></td><td class="r nw"><b>${won(s.spent)}</b></td><td colspan="2"></td></tr></tbody></table>
+      ${rc.map((r, i) => `<div class="p-rcp"><h2>${i + 1}. ${esc(r.date)} ${esc(r.store)} ${won(r.amount)}</h2><p>${esc([r.category, r.item].filter(Boolean).join(', '))}${actOf.get(r.actId) ? ` (활동: ${actTxt(r)})` : ''}</p>
         ${filesOf('R:' + r.id).length ? `<div class="p-imgs">${filesOf('R:' + r.id).map((f) => `<div data-pfull="${esc(f.id)}" data-mime="${esc(f.mime)}"><p>(사진 불러오는 중)</p></div>`).join('')}</div>` : '<p>(사진 없음)</p>'}</div>`).join('')}</section>`;
   });
   p.innerHTML = `<div class="p-bar"><span id="p-prog">사진을 불러오는 중입니다…</span><button class="btn" data-act="doPrint" id="p-go" disabled>인쇄</button><button class="btn" data-act="closePrint">닫기</button></div><div class="p-doc">${html || '<p>영수증이 없습니다.</p>'}</div>`;
@@ -1336,23 +1398,27 @@ const ACT = {
   tab: (el) => { st.tab = el.dataset.tab; renderTeam(); },
   atab: (el) => { st.atab = el.dataset.tab; renderAdmin(); window.scrollTo(0, 0); },
   af: (el) => { st.af[el.dataset.k] = el.dataset.v; renderAdmin(); },
-  actf: (el) => { st.actf = el.dataset.v; renderAdmin(); },
   newAct: () => openActForm(null),
-  newRcp: () => openRcpForm(null),
-  rcpForAct: async (el) => { const a = D().acts.find((x) => x.id === el.dataset.id); await closeSheet(); openRcpForm(null, a); },
-  openAct: (el) => openAct(el.dataset.id),
-  openRcp: (el) => openRcp(el.dataset.id),
+  openAct: (el) => openAct(el.dataset.id, el.dataset.focus === 'rcps'),
   editAct: (el) => openActForm(D().acts.find((x) => x.id === el.dataset.id)),
-  editRcp: (el) => openRcpForm(D().rcps.find((x) => x.id === el.dataset.id)),
+  // 보완 요청 받은 영수증: 활동 양식을 열고 그 영수증 양식까지 바로 띄운다
+  fixRcp: (el) => { const a = D().acts.find((x) => x.id === el.dataset.id); if (!a) return; openActForm(a); const i = st.form.rcps.findIndex((r) => r.id === el.dataset.rid); if (i >= 0) openRcpSub(i); },
+  addSubRcp: () => openRcpSub(-1),
+  editSubRcp: (el) => openRcpSub(Number(el.dataset.i)),
+  applySubRcp: () => applySubRcp(),
+  dropSubRcp: () => dropSubRcp(),
   delAct: async (el) => {
-    if (!(await ask('이 활동 기록을 지울까요? 사진도 함께 지워집니다.', '삭제', true))) return;
-    try { busy(true); await api('deleteAct', { id: el.dataset.id }); D().acts = D().acts.filter((a) => a.id !== el.dataset.id); setFiles('A:' + el.dataset.id, []); saveCache(); await closeAll(); render(); toast('삭제했습니다'); }
-    catch (e) { toast(e.message, 4000); } finally { busy(false); }
-  },
-  delRcp: async (el) => {
-    if (!(await ask('이 영수증을 지울까요? 사진도 함께 지워집니다.', '삭제', true))) return;
-    try { busy(true); await api('deleteRcp', { id: el.dataset.id }); D().rcps = D().rcps.filter((r) => r.id !== el.dataset.id); setFiles('R:' + el.dataset.id, []); saveCache(); await closeAll(); render(); toast('삭제했습니다'); }
-    catch (e) { toast(e.message, 4000); } finally { busy(false); }
+    const id = el.dataset.id, rcs = rcpsOf(id);
+    if (D().role === 'team' && rcs.some((r) => r.status === '확인')) { toast('교육팀 확인이 끝난 영수증이 붙어 있어 지울 수 없습니다. 교육팀에 알려 주세요.', 4500); return; }
+    if (!(await ask(rcs.length ? `이 활동 기록을 지울까요? 붙은 영수증 ${rcs.length}건과 사진도 함께 지워집니다.` : '이 활동 기록을 지울까요? 사진도 함께 지워집니다.', '삭제', true))) return;
+    try {
+      busy(true);
+      const r = await api('deleteAct', { id: id });
+      const gone = new Set((r.rcps || []).concat(rcs.map((x) => x.id)));
+      D().acts = D().acts.filter((a) => a.id !== id); D().rcps = D().rcps.filter((x) => !gone.has(x.id));
+      setFiles('A:' + id, []); gone.forEach((x) => setFiles('R:' + x, []));
+      saveCache(); await closeAll(); render(); toast('삭제했습니다');
+    } catch (e) { toast(e.message, 4000); } finally { busy(false); }
   },
   chip: (el) => {
     const f = st.form; if (!f) return;
@@ -1368,7 +1434,7 @@ const ACT = {
     saveDraftSoon();
   },
   addAtt: () => {
-    const f = st.form, inp = $('#att-new'); if (!f || !inp) return;
+    const f = st.form, inp = fq('#att-new'); if (!f || !inp) return;
     inp.value.split(',').map((s) => s.trim()).filter(Boolean).forEach((n) => { if (!f.attendees.includes(n)) f.attendees.push(n); });
     inp.value = ''; drawAtt(); saveDraftSoon();
   },
@@ -1379,17 +1445,10 @@ const ACT = {
     if (p && !p.isNew) f.remove.push(p.id);
     drawPhotos();
   },
-  clearDraft: async (el) => {
-    lsSet(el.dataset.k === 'act' ? LS.dAct : LS.dRcp, null);
-    const kind = el.dataset.k;
-    await closeSheet();
-    if (kind === 'act') openActForm(null); else openRcpForm(null);
-  },
+  clearDraft: async () => { lsSet(LS.dAct, null); await closeSheet(); openActForm(null); },
   saveAct: () => saveAct(),
-  saveRcp: () => saveRcp(),
   view: (el) => viewPhoto(el.dataset.id),
   closeViewer: () => { if (history.state && history.state.viewer) history.back(); else { const v = $('#viewer'); if (v) v.remove(); } },
-  reloadImgs: () => { const s = topSheet(); if (s) loadFullImages(s); },
   saveMembers: async (el) => {
     const v = $('#members-in').value;
     el.disabled = true;
@@ -1398,7 +1457,7 @@ const ACT = {
   },
   copyMyLink: () => {
     const t = Object.assign({}, D().team, { code: st.auth.code });
-    copyText(`[${D().settings.courseName || 'AI프론티어'}] ${t.name} 활동 기록·영수증 제출 링크\n${teamLink(t)}`, '우리 팀 링크를 복사했습니다');
+    copyText(`[${D().settings.courseName || 'AI프론티어'}] ${t.name} 활동 기록 링크\n${teamLink(t)}`, '우리 팀 링크를 복사했습니다');
   },
   teamDetail: (el) => teamDetail(el.dataset.id),
   copyLink: (el) => { const t = teamOf(el.dataset.id); copyText(teamLink(t), t.name + ' 링크를 복사했습니다'); },
@@ -1433,12 +1492,13 @@ const ACT = {
   },
   review: async (el) => {
     const id = el.dataset.id, s = el.dataset.s;
-    const note = ($('#rv-note') || {}).value || '';
-    if (s === '보완요청' && !note.trim()) { toast('무엇을 보완할지 메모 칸에 적어 주세요.'); $('#rv-note').focus(); return; }
+    const inp = document.getElementById('rv-' + id);
+    const note = inp ? inp.value : '';
+    if (s === '보완요청' && !note.trim()) { toast('무엇을 보완할지 메모 칸에 적어 주세요.'); if (inp) inp.focus(); return; }
     el.disabled = true;
     const cur = D().rcps.find((x) => x.id === id) || {};
     const sendNote = s === '확인' && (!note.trim() || note === cur.reviewNote) ? '' : note; // 예전 보완 메모를 확인 메모로 남기지 않음
-    try { busy(true); const r = await api('review', { id: id, status: s, note: sendNote }); upsert(D().rcps, r.rcp); saveCache(); await closeAll(); render(); toast(s === '확인' ? '확인 완료로 바꿨습니다' : s === '보완요청' ? '보완 요청을 보냈습니다' : '확인 대기로 되돌렸습니다'); }
+    try { busy(true); const r = await api('review', { id: id, status: s, note: sendNote }); upsert(D().rcps, r.rcp); saveCache(); render(); rerenderSheets(); toast(s === '확인' ? '확인 완료로 바꿨습니다' : s === '보완요청' ? '보완 요청을 보냈습니다' : '확인 대기로 되돌렸습니다'); }
     catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
   },
   exportXlsx: async () => { await closeAll(); exportXlsx(); },
@@ -1471,6 +1531,8 @@ document.addEventListener('input', (e) => {
     f[k] = el.value;
     if (k === 'start' || k === 'end') updHours();
     if (k === 'payer') drawPayer();
+    if (k === 'date' && f.kind === 'rcp') f.dateAuto = false; // 손으로 바꾼 사용일은 활동 날짜를 따라가지 않음
+    if (k === 'date' && f.kind === 'act') drawRcps();
   }
   saveDraftSoon();
 });

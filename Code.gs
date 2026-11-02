@@ -9,10 +9,11 @@
  *
  * 데이터는 이 시트의 탭(설정·팀·활동기록·영수증·파일·변경이력)에, 사진·영수증 파일은 내 드라이브의
  * 「AI프론티어 팀 기록 (사진·영수증)」 폴더에 쌓인다. 팀 코드가 맞아야만 읽고 쓸 수 있다.
+ * 영수증은 따로 올리지 않고 활동 기록에 붙인다(영수증 탭의 「연결활동」 칸 = 활동 id).
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-10-30.3';
+var VERSION = '2026-11-02.1';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -212,12 +213,19 @@ function deleteAct_(req) {
   var who = auth_(req);
   return withLock_(function () {
     var ex = find_(readAll_('act'), String(req.id || ''));
-    if (!ex || ex.deleted === 'Y') return { deleted: true };
+    if (!ex || ex.deleted === 'Y') return { deleted: true, rcps: [] };
     if (!who.admin && ex.team !== who.team.id) throw appErr_('forbidden', '다른 팀의 기록입니다.');
-    writeRow_('act', { deleted: 'Y', updated: now_() }, ex._row);
+    // 붙어 있는 영수증도 같이 지운다. 교육팀 확인이 끝난 영수증이 있으면 팀은 지울 수 없다
+    var rcs = live_(readAll_('rcp')).filter(function (r) { return r.actId === ex.id; });
+    if (!who.admin && rcs.some(function (r) { return r.status === '확인'; })) {
+      throw appErr_('locked', '교육팀 확인이 끝난 영수증이 붙어 있어 지울 수 없습니다. 교육팀에 알려 주세요.');
+    }
+    var now = now_();
+    writeRow_('act', { deleted: 'Y', updated: now }, ex._row);
     trashOwner_('A:' + ex.id);
-    log_(who, '활동 삭제', ex.id, ex.date + ' ' + ex.topic);
-    return { deleted: true };
+    rcs.forEach(function (r) { writeRow_('rcp', { deleted: 'Y', updated: now }, r._row); trashOwner_('R:' + r.id); });
+    log_(who, '활동 삭제', ex.id, ex.date + ' ' + ex.topic + (rcs.length ? ' (영수증 ' + rcs.length + '건 함께)' : ''));
+    return { deleted: true, rcps: rcs.map(function (r) { return r.id; }) };
   });
 }
 
@@ -240,12 +248,18 @@ function saveRcp_(req) {
     if (!(amount > 0)) throw appErr_('bad', '금액을 확인해 주세요.');
     var store = str_(r.store, 100);
     if (!store) throw appErr_('bad', '사용처(가게 이름)를 적어 주세요.');
+    // 영수증은 활동 기록에 붙는다: 같은 팀의 지워지지 않은 활동이어야 한다
+    var actId = str_(r.actId, 40) || (ex ? String(ex.actId || '') : '');
+    var act = actId ? find_(readAll_('act'), actId) : null;
+    if (!act || act.deleted === 'Y' || act.team !== tid) {
+      throw appErr_('bad', '영수증은 활동 기록 안에서 붙여 주세요. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+    }
     var now = now_();
     var people = Math.round(num_(r.people, 0, 999));
     var obj = {
       id: id, team: tid, date: date, amount: amount, store: store, category: str_(r.category, 20) || '기타',
       item: str_(r.item, 500), people: people > 0 ? people : '', payer: str_(r.payer, 30), method: str_(r.method, 20),
-      actId: str_(r.actId, 40), memo: str_(r.memo, 1000), writer: str_(r.writer, 30), updated: now, deleted: ''
+      actId: actId, memo: str_(r.memo, 1000), writer: str_(r.writer, 30), updated: now, deleted: ''
     };
     if (!ex) { obj.created = now; obj.status = '제출'; }
     else if (!who.admin && ex.status === '보완요청') obj.status = '제출'; // 고치면 다시 제출 상태
