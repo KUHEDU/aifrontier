@@ -9,13 +9,14 @@
  *  5) (새 기록 알림 메일) 편집기 위쪽에서 함수 setupNotify 를 골라 [실행] → 권한 허용. 팀이 기록을 남기면 몇 분 안에
  *     내 메일로 알림이 온다. 받는 주소 바꾸기·끄기는 관리자 화면 → 설정.
  *
- * 데이터는 이 시트의 탭(설정·팀·활동기록·영수증·파일·변경이력)에, 사진·영수증 파일은 내 드라이브의
+ * 데이터는 이 시트의 탭(설정·팀·활동기록·영수증·일정·파일·변경이력)에, 사진·영수증 파일은 내 드라이브의
  * 「AI프론티어 팀 기록 (사진·영수증)」 폴더에 쌓인다. 팀 코드가 맞아야만 읽고 쓸 수 있다.
  * 영수증은 따로 올리지 않고 활동 기록에 붙인다(영수증 탭의 「연결활동」 칸 = 활동 id).
+ * 팀이 미리 정해 두는 스터디·멘토링 일정은 「일정」 탭에 쌓인다(이 탭이 없던 시트는 첫 일정을 저장할 때 만든다).
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-02.2';
+var VERSION = '2026-11-05.1';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -53,6 +54,9 @@ var TABS = {
     ['method', '결제수단', 't'], ['actId', '연결활동', 't'], ['memo', '메모', 't'], ['status', '상태', 't'],
     ['reviewNote', '확인메모', 't'], ['reviewed', '확인시각', 's'], ['writer', '작성자', 't'],
     ['created', '작성시각', 's'], ['updated', '수정시각', 's'], ['deleted', '삭제', 't']] },
+  ev: { name: '일정', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['type', '유형', 't'], ['date', '날짜', 'd'],
+    ['start', '시작', 'h'], ['end', '종료', 'h'], ['title', '제목', 't'], ['place', '장소', 't'], ['memo', '메모', 't'],
+    ['writer', '작성자', 't'], ['created', '작성시각', 's'], ['updated', '수정시각', 's'], ['deleted', '삭제', 't']] },
   file: { name: '파일', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['owner', '대상', 't'], ['driveId', '드라이브ID', 't'],
     ['name', '파일명', 't'], ['mime', '형식', 't'], ['size', '크기', 'n'], ['created', '작성시각', 's'], ['deleted', '삭제', 't'],
     ['thumb', '썸네일', 't']] },
@@ -74,6 +78,7 @@ var ROUTES = {
   ping: ping_, setup: setup_, load: load_,
   saveAct: saveAct_, deleteAct: deleteAct_,
   saveRcp: saveRcp_, deleteRcp: deleteRcp_,
+  saveEvent: saveEvent_, deleteEvent: deleteEvent_,
   getFile: getFile_, saveMembers: saveMembers_,
   review: review_, saveTeams: saveTeams_, saveSettings: saveSettings_
 };
@@ -164,6 +169,7 @@ function load_(req) {
   var acts = live_(readAll_('act'));
   var rcps = live_(readAll_('rcp'));
   var files = live_(readAll_('file'));
+  var evs = live_(evRows_());
   var res = { settings: pubSettings_(S) };
   if (who.admin) {
     res.role = 'admin';
@@ -171,6 +177,7 @@ function load_(req) {
     res.acts = acts.map(pubAct_);
     res.rcps = rcps.map(pubRcp_);
     res.files = files.map(pubFile_);
+    res.events = evs.map(pubEv_);
     res.sheetUrl = ss_().getUrl();
     res.folderUrl = S.folderId ? 'https://drive.google.com/drive/folders/' + S.folderId : '';
     res.notify = notifyInfo_(S);
@@ -186,6 +193,7 @@ function load_(req) {
   var seen = {};
   res.acts.forEach(function (a) { seen['A:' + a.id] = true; });
   res.files = files.filter(function (f) { return f.team === tid || (open && seen[f.owner]); }).map(pubFile_);
+  res.events = evs.filter(function (e) { return e.team === tid; }).map(pubEv_); // 일정은 활동기록공개와 관계없이 자기 팀만
   return res;
 }
 
@@ -290,6 +298,45 @@ function deleteRcp_(req) {
     writeRow_('rcp', { deleted: 'Y', updated: now_() }, ex._row);
     trashOwner_('R:' + ex.id);
     log_(who, '영수증 삭제', ex.id, ex.date + ' ' + ex.store + ' ' + ex.amount + '원');
+    return { deleted: true };
+  });
+}
+
+// 팀 일정(스터디·멘토링 등). 팀은 자기 팀 것만, 교육팀은 어느 팀 것이든 만들고 고친다
+function saveEvent_(req) {
+  var who = auth_(req);
+  var e = req.event || {};
+  return withLock_(function () {
+    var tid = who.admin ? str_(e.team, 10) : who.team.id;
+    if (!teamById_(tid)) throw appErr_('bad', '팀을 찾을 수 없습니다.');
+    var date = date_(e.date);
+    if (!date) throw appErr_('bad', '날짜를 확인해 주세요.');
+    if (!ss_().getSheetByName(TABS.ev.name)) ensureTab_(ss_(), 'ev');
+    var id = cleanId_(e.id, 'e');
+    var ex = find_(readAll_('ev'), id);
+    if (ex && ex.team !== tid) throw appErr_('forbidden', '다른 팀의 일정입니다.');
+    if (ex && ex.deleted === 'Y') throw appErr_('deleted', '이미 지운 일정입니다.');
+    var now = now_();
+    var start = time_(e.start);
+    var obj = {
+      id: id, team: tid, type: ACT_TYPES.indexOf(e.type) >= 0 ? e.type : '기타', date: date, start: start, end: start ? time_(e.end) : '',
+      title: str_(e.title, 100), place: str_(e.place, 100), memo: str_(e.memo, 2000), writer: str_(e.writer, 30), updated: now, deleted: ''
+    };
+    if (!ex) obj.created = now;
+    writeRow_('ev', obj, ex ? ex._row : 0);
+    log_(who, ex ? '일정 수정' : '일정 등록', id, obj.date + ' ' + obj.type + ' ' + obj.title);
+    return { event: pubEv_(merge_(ex, obj)) };
+  });
+}
+
+function deleteEvent_(req) {
+  var who = auth_(req);
+  return withLock_(function () {
+    var ex = find_(evRows_(), String(req.id || ''));
+    if (!ex || ex.deleted === 'Y') return { deleted: true };
+    if (!who.admin && ex.team !== who.team.id) throw appErr_('forbidden', '다른 팀의 일정입니다.');
+    writeRow_('ev', { deleted: 'Y', updated: now_() }, ex._row);
+    log_(who, '일정 삭제', ex.id, ex.date + ' ' + ex.type + ' ' + ex.title);
     return { deleted: true };
   });
 }
@@ -566,6 +613,9 @@ function teams_() {
 
 function teamById_(id) { return find_(teams_(), String(id || '')); }
 
+// 「일정」 탭은 2026-11-05에 생겼다. 그 전에 설치한 시트에는 없으니 없으면 빈 목록(저장할 때 만든다)
+function evRows_() { return ss_().getSheetByName(TABS.ev.name) ? readAll_('ev') : []; }
+
 /* ───────── 팀별 보기 탭 ───────── */
 
 // 팀마다 탭 하나(A-1팀 … C팀): 위에 예산·사용·잔액, 아래 왼쪽 활동 기록, 오른쪽 영수증.
@@ -744,15 +794,15 @@ function notify_(now) {
 
 function notifyMail_(rows, now) {
   var course = settings_().courseName || 'AI프론티어';
-  var acts = readAll_('act'), rcps = readAll_('rcp');
+  var acts = readAll_('act'), rcps = readAll_('rcp'), evs = evRows_();
   var rank = {};
   teams_().forEach(function (t, i) { rank[t.name] = i; });
   var groups = {}, labels = [];
   rows.forEach(function (r) {
     var g = groups[r.who];
-    if (!g) { g = groups[r.who] = { act: {}, actIds: [], rcp: {}, rcpIds: [], members: null }; labels.push(r.who); }
+    if (!g) { g = groups[r.who] = { act: {}, actIds: [], rcp: {}, rcpIds: [], ev: {}, evIds: [], members: null }; labels.push(r.who); }
     if (r.action === '팀원 수정') { g.members = r.summary; return; }
-    var kind = /^활동 /.test(r.action) ? 'act' : /^영수증 /.test(r.action) ? 'rcp' : '';
+    var kind = /^활동 /.test(r.action) ? 'act' : /^영수증 /.test(r.action) ? 'rcp' : /^일정 /.test(r.action) ? 'ev' : '';
     if (!kind || !r.target) return;
     var e = g[kind][r.target];
     if (!e) { e = g[kind][r.target] = { isNew: false, del: false, summary: '' }; g[kind + 'Ids'].push(r.target); }
@@ -761,7 +811,7 @@ function notifyMail_(rows, now) {
     e.summary = r.summary;
   });
   labels.sort(function (a, b) { return (a in rank ? rank[a] : 99) - (b in rank ? rank[b] : 99); });
-  var lines = [], shown = [], n = { act: 0, rcp: 0, mem: 0 };
+  var lines = [], shown = [], n = { act: 0, rcp: 0, ev: 0, mem: 0 };
   labels.forEach(function (label) {
     var g = groups[label], used = {}, out = [];
     g.actIds.forEach(function (id) {
@@ -782,6 +832,11 @@ function notifyMail_(rows, now) {
       n.rcp++;
       out.push('- ' + rcpLine_(x, g.rcp[rid], x ? find_(acts, x.actId) : null));
     });
+    g.evIds.forEach(function (id) {
+      var e = g.ev[id];
+      n.ev++;
+      out.push('- ' + (e.del ? '일정 삭제' : e.isNew ? '새 일정' : '일정 고침') + ': ' + evLine_(find_(evs, id), e));
+    });
     if (g.members !== null) { n.mem++; out.push('- 팀원 수정: ' + (g.members || '(모두 지움)')); }
     if (!out.length) return;
     shown.push(label);
@@ -796,6 +851,7 @@ function notifyMail_(rows, now) {
   var parts = [];
   if (n.act) parts.push('활동 기록 ' + n.act + '건');
   if (n.rcp) parts.push('영수증 ' + n.rcp + '건');
+  if (n.ev) parts.push('일정 ' + n.ev + '건');
   if (n.mem) parts.push('팀원 수정');
   var at = Utilities.formatDate(new Date(now), TZ, 'yyyy-MM-dd HH:mm');
   return {
@@ -823,9 +879,17 @@ function rcpLine_(x, e, act) {
   return s;
 }
 
+function evLine_(x, e) {
+  if (!x) return e.summary;
+  var s = md_(x.date) + (x.start ? ' ' + x.start + (x.end ? '–' + x.end : '') : '') + ' ' + (x.type || '') + (x.title ? ' 「' + x.title + '」' : '');
+  if (x.place) s += ' · ' + x.place;
+  if (x.writer) s += ' · 작성 ' + x.writer;
+  return s;
+}
+
 function sendHello_(to) {
   MailApp.sendEmail({ to: to.join(','), name: mailName_(), subject: '[' + (settings_().courseName || 'AI프론티어') + '] 새 기록 알림 메일을 켰습니다',
-    body: '앞으로 팀이 활동 기록이나 영수증을 남기거나 고치면 몇 분 안에 이 주소로 알림 메일을 보냅니다.\n'
+    body: '앞으로 팀이 활동 기록·영수증·일정을 남기거나 고치면 몇 분 안에 이 주소로 알림 메일을 보냅니다.\n'
       + '받는 주소: ' + to.join(', ') + '\n\n' + mailFooter_() });
 }
 
@@ -904,6 +968,11 @@ function pubRcp_(r) {
     item: r.item, people: Number(r.people) || 0, payer: r.payer, method: r.method, actId: r.actId, memo: r.memo,
     status: r.status || '제출', reviewNote: r.reviewNote, reviewed: r.reviewed, writer: r.writer,
     created: r.created, updated: r.updated };
+}
+
+function pubEv_(e) {
+  return { id: e.id, team: e.team, type: e.type, date: e.date, start: e.start, end: e.end, title: e.title, place: e.place,
+    memo: e.memo, writer: e.writer, created: e.created, updated: e.updated };
 }
 
 function pubFile_(f) {

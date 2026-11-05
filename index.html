@@ -154,6 +154,7 @@ textarea.in{min-height:110px;resize:vertical;line-height:1.55}
 .chip{min-height:40px;padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:15px;font-weight:600;color:var(--ink)}
 .chip[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
 .chip.add{border-style:dashed;color:var(--blue)}
+.chip[disabled]:not([aria-pressed="true"]){opacity:.45}
 .inline-add{display:flex;gap:8px;margin-top:10px}
 .inline-add .in{flex:1;min-width:0;min-height:44px;font-size:16px}
 .inline-add .btn{flex:none;height:44px}
@@ -205,6 +206,70 @@ textarea.in{min-height:110px;resize:vertical;line-height:1.55}
 .rc-card .status-box{margin-top:10px}
 .rv{margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);display:grid;gap:8px}
 .rv .in{min-height:44px;font-size:16px}
+
+/* 일정(달력·목록) — 유형 색: 자율스터디 파랑, 팀 회의 청록, 멘토링 보라, 기타 회색 */
+.ty0{background:#E3EEFF;color:#1A56C4}
+.ty1{background:#DCF1EE;color:#0B6B63}
+.ty2{background:#EEE7FE;color:#5A3BC2}
+.ty3{background:#EBEFF3;color:#4F5F70}
+.calx{margin:14px 16px 32px}
+.cal-bar{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.cal-bar .grow{flex:1}
+.cal-bar .btn{height:40px;padding:0 14px;font-size:15px}
+.seg{display:inline-flex;padding:3px;border-radius:11px;background:#E4EAF0}
+.seg button{height:34px;padding:0 14px;border:0;border-radius:8px;background:transparent;font-size:14px;font-weight:650;color:var(--slate)}
+.seg button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(12,43,63,.12)}
+.cal{background:#fff;border:1px solid var(--line2);border-radius:16px;overflow:hidden}
+.cal-head{display:flex;align-items:center;gap:2px;padding:8px 10px 4px 6px}
+.cal-head h3{margin:0 4px;font-size:18px;font-weight:740;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.cal-head .icon-btn{width:40px;height:40px;margin:0;color:var(--slate)}
+.cal-head .icon-btn:active{background:#EEF2F6}
+.cal-head .grow{flex:1}
+.cal-today{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:13px;font-weight:650;color:var(--slate)}
+.cal-wd,.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-wd span{padding:2px 0 6px;text-align:center;font-size:12px;font-weight:650;color:var(--mute)}
+.cal-wd span:first-child{color:#C94A4A}
+.cal-wd span:last-child{color:#2F64C8}
+.cd{display:flex;flex-direction:column;gap:2px;min-width:0;min-height:66px;padding:4px 3px 6px;border:0;border-top:1px solid var(--line2);background:#fff;text-align:left}
+.cd:active{background:#F5F8FB}
+.cd-n{align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;font-size:14px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.cd.sun .cd-n{color:#C94A4A}
+.cd.sat .cd-n{color:#2F64C8}
+.cd.out{background:#FAFBFC}
+.cd.out>*{opacity:.42}
+.cd.sel{background:#EDF3FF}
+.cd.sel .cd-n{box-shadow:inset 0 0 0 1.5px var(--blue)}
+.cd.today .cd-n{background:var(--blue);color:#fff;font-weight:760;box-shadow:none}
+.cv{display:block;min-width:0;padding:0 4px;border-radius:4px;font-size:11px;font-weight:700;font-style:normal;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv.more{background:none;color:var(--slate);font-weight:650;padding:0 2px}
+.cv.hm,.cv.mw,.cv-x{display:none}
+.cal-legend{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 12px;border-top:1px solid var(--line2)}
+.cal-legend .cv{display:inline-block;padding:1px 7px;font-size:12px;line-height:18px}
+.day-h{display:flex;align-items:center;gap:8px;margin:18px 4px 8px}
+.day-h h3{margin:0;font-size:15px;font-weight:700;color:var(--slate)}
+.calx .list{margin:0}
+.calx .list+.list{margin-top:12px}
+.ev-row .row-date b{font-size:15px}
+.empty-s{margin:0;padding:16px;color:var(--mute);font-size:15px}
+.pill.dday{background:#E3EEFF;color:var(--blue)}
+.pill.dday.now{background:var(--blue);color:#fff}
+.past-btn{margin-top:12px}
+.notice svg{flex:none}
+.admin-main .calx{margin:0}
+@media (min-width:760px){
+  .cal.wide .cd{min-height:104px;padding:6px 6px 8px}
+  .cal.wide .cd-n{align-self:flex-start}
+  .cal.wide .cv{font-size:12px;line-height:18px;padding:0 6px}
+  .cal.wide .cv.hm{display:block}
+  .cal.wide .cv.hw{display:none}
+  .cal.wide .cv.mm{display:none}
+  .cal.wide .cv.mw{display:block}
+  .cal.wide .cv-x{display:inline}
+}
+@media (min-width:980px){
+  .admin-main .cal-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+  .admin-main .cal-layout .day-h{margin-top:6px}
+}
 
 /* 사진 크게 보기 */
 #viewer{position:fixed;inset:0;z-index:70;background:#05121C;display:flex;flex-direction:column}
@@ -329,11 +394,11 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-02.3';
+const APP_VERSION = '2026-11-05.1';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
-const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act' };
+const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', calView: 'af.calView' };
 const ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 const CATS = ['식비·다과', '인쇄·자료', '도서', '소모품', '장소 대관', '기타'];
 const METHODS = ['개인카드', '법인카드', '현금', '기타'];
@@ -344,7 +409,8 @@ const WD = ['일', '월', '화', '수', '목', '금', '토'];
 
 const st = {
   api: '', auth: null, data: null, tab: 'acts', atab: 'dash',
-  af: { team: 'all', status: 'all' }, full: new Map(), form: null, lastErr: ''
+  af: { team: 'all', status: 'all' }, full: new Map(), form: null, lastErr: '',
+  cal: { view: lsGet(LS.calView, 'cal') === 'list' ? 'list' : 'cal', team: 'all', past: false, y: 0, m: 0, sel: '' } // 일정 화면(고른 날·보기 방식)
 };
 
 /* ───────── 작은 도구 ───────── */
@@ -402,7 +468,10 @@ const ICON = {
   receipt: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   camera: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   image: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="m4 16 5-5 4 4 2-2 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
-  back: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  back: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  fwd: '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  plus: '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  cal: '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
 };
 
 /* 자율스터디 별자리: 목표 횟수만큼 점, 기록한 만큼 불이 켜진다 */
@@ -537,7 +606,7 @@ function ask(msg, okLabel, danger) {
 }
 
 /* ───────── 데이터 ───────── */
-function D() { return st.data || { acts: [], rcps: [], files: [], teams: [], settings: {} }; }
+function D() { return st.data || { acts: [], rcps: [], files: [], events: [], teams: [], settings: {} }; }
 function filesOf(owner) { return D().files.filter((f) => f.owner === owner); }
 function teamName(id) { const t = D().teams.find((x) => x.id === id); return t ? t.name : id; }
 function teamOf(id) { const d = D(); if (d.team && d.team.id === id) return d.team; return d.teams.find((x) => x.id === id) || null; }
@@ -693,7 +762,10 @@ function renderTeam() {
   const others = d.acts.filter((a) => a.team !== t.id);
   const fixes = s.rcps.filter((r) => r.status === '보완요청');
   const myActs = s.acts.slice().sort(byDateDesc);
-  if (st.tab !== 'others' || !others.length) st.tab = 'acts';
+  const myEvs = calList(), today = todayStr(), upEvs = myEvs.filter((e) => e.date >= today).sort(byEvAsc);
+  const tabs = [['acts', '활동 기록', myActs.length], ['cal', '일정', upEvs.length]].concat(others.length ? [['others', '다른 팀', others.length]] : []);
+  if (!tabs.some((x) => x[0] === st.tab)) st.tab = 'acts';
+  const nx = upEvs[0];
   app().innerHTML = `
   <header class="band"><div class="wrap">
     <div class="band-top"><span class="course">${esc(set.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="teamMenu" aria-label="팀 메뉴">${ICON.more}</button></div>
@@ -708,11 +780,9 @@ function renderTeam() {
     <div class="actions"><button class="big primary" data-act="newAct">${ICON.note}<span class="big-l">활동 기록하기<small>쓴 활동지원비 영수증도 같이 붙입니다</small></span></button></div>
     ${fixes.length ? `<button class="notice" data-act="openAct" data-id="${esc(fixes[0].actId)}" data-focus="rcps"><span class="grow">교육팀이 영수증 ${fixes.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
-    ${others.length ? `<div class="tabs" role="tablist">
-      <button role="tab" aria-selected="${st.tab === 'acts'}" data-act="tab" data-tab="acts">우리 팀 기록<span class="cnt">${myActs.length}</span></button>
-      <button role="tab" aria-selected="${st.tab === 'others'}" data-act="tab" data-tab="others">다른 팀<span class="cnt">${others.length}</span></button>
-    </div>` : `<h2 class="sec-h">활동 기록<span class="cnt">${myActs.length}</span></h2>`}
-    ${st.tab === 'others' ? othersList(others) : actList(myActs)}
+    ${nx && st.tab !== 'cal' ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}</span><b>${ddayText(nx.date)}</b></button>` : ''}
+    <div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>
+    ${st.tab === 'others' ? othersList(others) : st.tab === 'cal' ? calSection(myEvs, {}) : actList(myActs)}
   </div>`;
 }
 
@@ -735,6 +805,156 @@ function othersList(acts) {
   const groups = {};
   acts.slice().sort(byDateDesc).forEach((a) => { (groups[a.team] = groups[a.team] || []).push(a); });
   return Object.keys(groups).map((tid) => `<div class="list"><div class="list-h">${esc(teamName(tid))}</div>${groups[tid].map((a) => actRow(a)).join('')}</div>`).join('');
+}
+
+/* ───── 일정(달력·목록) ───── */
+const EV_SHORT = { '자율스터디': '스터디', '팀 회의': '회의', '멘토링': '멘토링', '기타': '기타' };
+function evs() { return D().events || []; } // 2026-11-05 전 서버·저장된 화면에는 일정이 없다
+// 팀은 자기 팀 일정, 교육팀은 고른 팀(전체 팀)
+function calList() { const d = D(), c = st.cal; return d.role === 'admin' ? evs().filter((e) => c.team === 'all' || e.team === c.team) : evs().filter((e) => d.team && e.team === d.team.id); }
+const tyCls = (type) => 'ty' + (ACT_TYPES.includes(type) ? ACT_TYPES.indexOf(type) : 3);
+const evKey = (e) => e.date + (e.start || '00:00') + (e.created || ''); // 시간 미정은 그날 맨 앞
+const byEvAsc = (a, b) => evKey(a).localeCompare(evKey(b));
+function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function dateOf(s) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; }
+function dayDiff(s) { const d = dateOf(s); return d ? Math.round((d - dateOf(todayStr())) / 864e5) : NaN; }
+function ddayText(s) { const n = dayDiff(s); return n === 0 ? '오늘' : n === 1 ? '내일' : n > 1 ? 'D-' + n : ''; }
+function fmtDay(s) { const d = dateOf(s); return d ? (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + WD[d.getDay()] + '요일' : esc(s); }
+function evTime(e) { return e.start ? e.start + (e.end ? '–' + e.end : '') : '시간 미정'; }
+function shortTeam(id) { const n = teamName(id); return n.replace(/\s*\(.*\)\s*$/, '').replace(/팀$/, '') || n; } // A-1팀 → A-1
+function calState() { if (!st.cal.sel) calGo(todayStr()); return st.cal; }
+function calGo(s) { const d = dateOf(s); if (d) Object.assign(st.cal, { y: d.getFullYear(), m: d.getMonth(), sel: s }); }
+// 위: 보기 방식·추가 버튼, 아래: 달력과 고른 날의 일정, 또는 목록. o.admin = 팀 표시, o.chipTeam = 달력 칸에 팀 이름
+function calSection(list, o) {
+  const c = calState();
+  return `<div class="calx"><div class="cal-bar"><div class="seg" role="group" aria-label="보기 방식">${[['cal', '달력'], ['list', '목록']].map(([k, l]) => `<button data-act="calView" data-v="${k}" aria-pressed="${c.view === k}">${l}</button>`).join('')}</div>
+    <span class="grow"></span><button class="btn primary" data-act="newEv">${ICON.plus}일정 추가</button></div>
+    ${c.view === 'list' ? evList(list, o) : `<div class="cal-layout">${calCard(list, o)}<div>${dayPanel(list, o)}</div></div>`}</div>`;
+}
+function calCard(list, o) {
+  const c = st.cal, lead = new Date(c.y, c.m, 1).getDay(), today = todayStr();
+  const weeks = Math.ceil((lead + new Date(c.y, c.m + 1, 0).getDate()) / 7);
+  const byDay = {};
+  list.forEach((e) => { (byDay[e.date] = byDay[e.date] || []).push(e); });
+  let cells = '';
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(c.y, c.m, 1 - lead + i), ds = ymd(d), es = (byDay[ds] || []).sort(byEvAsc), n = es.length;
+    // 휴대폰은 칸에 두 줄(일정이 셋 이상이면 하나 + 「+나머지」), 넓은 화면(교육팀)은 네 줄
+    const chips = es.map((e, j) => {
+      const hide = [(n > 2 ? j >= 1 : j >= 2) ? 'hm' : '', (n > 4 ? j >= 3 : j >= 4) ? 'hw' : ''].join(' ');
+      const ty = EV_SHORT[e.type] || e.type;
+      // 전체 팀이면 팀 이름(넓은 화면은 + 유형), 한 팀이면 유형(넓은 화면은 시각 + 유형)
+      const label = o.chipTeam ? esc(shortTeam(e.team)) + `<span class="cv-x"> ${esc(ty)}</span>` : (e.start ? `<span class="cv-x">${esc(e.start)} </span>` : '') + esc(ty);
+      return `<i class="cv ${tyCls(e.type)} ${hide}">${label}</i>`;
+    }).join('') + (n > 2 ? `<i class="cv more mm">+${n - 1}</i>` : '') + (n > 4 ? `<i class="cv more mw">+${n - 3}</i>` : '');
+    const cls = ['cd', d.getMonth() !== c.m ? 'out' : '', ds === today ? 'today' : '', ds === c.sel ? 'sel' : '', d.getDay() === 0 ? 'sun' : d.getDay() === 6 ? 'sat' : ''].filter(Boolean).join(' ');
+    cells += `<button class="${cls}" data-act="calPick" data-d="${ds}" aria-pressed="${ds === c.sel}" aria-label="${fmtDay(ds)}${n ? ', 일정 ' + n + '개' : ''}"><span class="cd-n">${d.getDate()}</span>${chips}</button>`;
+  }
+  return `<div class="cal${o.admin ? ' wide' : ''}"><div class="cal-head"><button class="icon-btn" data-act="calMove" data-n="-1" aria-label="이전 달">${ICON.back}</button><h3>${c.y}년 ${c.m + 1}월</h3><button class="icon-btn" data-act="calMove" data-n="1" aria-label="다음 달">${ICON.fwd}</button><span class="grow"></span><button class="cal-today" data-act="calToday">오늘</button></div>
+    <div class="cal-wd" aria-hidden="true">${WD.map((w) => `<span>${w}</span>`).join('')}</div><div class="cal-grid">${cells}</div>
+    <div class="cal-legend">${ACT_TYPES.map((t) => `<span class="cv ${tyCls(t)}">${esc(t)}</span>`).join('')}</div></div>`;
+}
+function dayPanel(list, o) {
+  const c = st.cal, es = list.filter((e) => e.date === c.sel).sort(byEvAsc), dd = ddayText(c.sel);
+  return `<div class="day-h"><h3>${fmtDay(c.sel)}</h3>${dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : ''}</div>
+    <div class="list">${es.map((e) => evRow(e, o, true)).join('') || '<p class="empty-s">이 날은 일정이 없습니다.</p>'}<button class="row rc-add" data-act="newEv" data-date="${esc(c.sel)}">${ICON.plus}<span>이 날 일정 추가</span></button></div>`;
+}
+// 일정 한 줄: 고른 날 목록에서는 왼쪽에 시각, 전체 목록에서는 날짜와 남은 날
+function evRow(e, o, inDay) {
+  const d = dateOf(e.date), dd = inDay ? '' : ddayText(e.date);
+  const left = inDay ? `<div class="row-date">${e.start ? `<b>${esc(e.start)}</b><span>${e.end ? '~' + esc(e.end) : ''}</span>` : '<span>시간 미정</span>'}</div>`
+    : `<div class="row-date"><b>${d ? (d.getMonth() + 1) + '.' + d.getDate() : ''}</b><span>${d ? WD[d.getDay()] : ''}</span></div>`;
+  const meta = [inDay ? '' : evTime(e), e.place].filter(Boolean).join(', ');
+  return `<button class="row ev-row" data-act="openEv" data-id="${esc(e.id)}">${left}
+    <div class="row-main"><div class="row-title">${o.admin ? `<span class="tag team">${esc(shortTeam(e.team))}</span>` : ''}<span class="tag ${tyCls(e.type)}">${esc(e.type)}</span>${esc(e.title)}</div>${meta ? `<div class="row-meta">${esc(meta)}</div>` : ''}</div>
+    ${dd ? `<div class="row-end"><span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span></div>` : ''}</button>`;
+}
+function evList(list, o) {
+  const c = st.cal, t = todayStr();
+  const up = list.filter((e) => e.date >= t).sort(byEvAsc), past = list.filter((e) => e.date < t).sort((a, b) => byEvAsc(b, a));
+  const groups = [];
+  up.forEach((e) => { const k = e.date.slice(0, 7); let g = groups[groups.length - 1]; if (!g || g.k !== k) groups.push(g = { k: k, items: [] }); g.items.push(e); });
+  const month = (k) => (k.slice(0, 4) !== t.slice(0, 4) ? k.slice(0, 4) + '년 ' : '') + (+k.slice(5, 7)) + '월';
+  let html = groups.length ? groups.map((g) => `<div class="list"><div class="list-h">${month(g.k)}</div>${g.items.map((e) => evRow(e, o)).join('')}</div>`).join('')
+    : `<div class="list"><div class="empty"><p>다가오는 일정이 없습니다.<br>${o.admin ? '팀이 일정을 적으면 여기에 모입니다.' : '스터디·멘토링 날짜가 정해지면 미리 적어 두세요.'}</p><button class="btn primary" data-act="newEv">일정 추가</button></div></div>`;
+  if (past.length) {
+    html += `<button class="btn ghost block past-btn" data-act="calPast" aria-expanded="${c.past}">지난 일정 ${past.length}개 ${c.past ? '접기' : '보기'}</button>`;
+    if (c.past) html += `<div class="list"><div class="list-h">지난 일정</div>${past.map((e) => evRow(e, o)).join('')}</div>`;
+  }
+  return html;
+}
+function evDetailHtml(e) {
+  const d = D(), admin = d.role === 'admin', dd = ddayText(e.date), gone = dayDiff(e.date) <= 0;
+  // 지났거나 오늘인 일정: 그날 같은 유형 활동 기록이 있으면 보기, 없으면(팀) 이 일정으로 기록 쓰기
+  const done = gone ? d.acts.find((a) => a.team === e.team && a.date === e.date && a.type === e.type) : null;
+  const rec = done ? `<button class="notice info" style="margin:16px 0 0;width:100%" data-act="openAct" data-id="${esc(done.id)}">${ICON.note}<span class="grow">이 날 ${esc(e.type)} 활동 기록이 있습니다.</span><b>보기</b></button>`
+    : gone && !admin ? `<button class="btn block" style="margin-top:16px" data-act="actFromEv" data-id="${esc(e.id)}">${ICON.note}이 일정으로 활동 기록 쓰기</button>` : '';
+  return `${sheetHead('일정')}<div class="sh-body">
+    <p style="margin:0"><span class="tag ${tyCls(e.type)}">${esc(e.type)}</span>${admin ? `<span class="tag team">${esc(teamName(e.team))}</span>` : ''}${dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : ''}</p>
+    <h3 class="d-title">${esc(e.title || e.type)}</h3>
+    <p class="d-sub">${fmtD(e.date, true)} ${esc(evTime(e))}${e.start && e.end ? ` (${hoursText(hoursBetween(e.start, e.end))})` : ''}</p>
+    <dl class="kv"><div><dt>장소</dt><dd>${esc(e.place || '-')}</dd></div>${e.memo ? `<div><dt>메모</dt><dd>${esc(e.memo)}</dd></div>` : ''}<div><dt>작성자</dt><dd>${esc(e.writer || '-')}</dd></div></dl>
+    ${rec}
+    <p class="hint" style="margin-top:16px;color:var(--mute);font-size:12px">작성 ${esc(e.created || '')}${e.updated && e.updated !== e.created ? ', 수정 ' + esc(e.updated) : ''}</p>
+  </div>
+  <div class="sh-foot"><div class="btn-row"><button class="btn danger" data-act="delEv" data-id="${esc(e.id)}" style="flex:0 0 auto">삭제</button><button class="btn primary" data-act="editEv" data-id="${esc(e.id)}">수정</button></div></div>`;
+}
+function openEv(id) {
+  const e = evs().find((x) => x.id === id);
+  if (!e) { toast('일정을 찾을 수 없습니다.'); return; }
+  openSheet(evDetailHtml(e), { label: '일정', rerender: () => { const x = evs().find((y) => y.id === id); return x ? evDetailHtml(x) : null; } });
+}
+function openEvForm(e, pre) {
+  const d = D(), admin = d.role === 'admin', isNew = !e, base = e || {};
+  pre = pre || {};
+  st.form = {
+    kind: 'ev', id: e ? e.id : rid('e'), isNew: isNew, team: e ? e.team : admin ? (st.cal.team !== 'all' ? st.cal.team : '') : d.team.id,
+    type: base.type || '자율스터디', date: base.date || pre.date || todayStr(), start: base.start || '', end: base.end || '',
+    title: base.title || '', place: base.place || '', memo: base.memo || '', writer: e ? base.writer || '' : admin ? '교육팀' : lsGet(LS.me, '')
+  };
+  const f = st.form;
+  const places = [...new Set(d.acts.map((x) => x.place).concat(evs().map((x) => x.place)).filter(Boolean))].slice(0, 12);
+  f.el = openSheet(`${sheetHead(isNew ? '일정 추가' : '일정 수정')}
+  <form class="sh-body" id="ev-form" autocomplete="off" novalidate>
+    ${admin ? `<div class="field"><span class="lbl">팀<span class="req">*</span></span><div class="chips">${d.teams.map((t) => `<button type="button" class="chip" data-act="chip" data-k="team" data-v="${esc(t.id)}" aria-pressed="${f.team === t.id}" ${isNew ? '' : 'disabled'}>${esc(t.name)}</button>`).join('')}</div></div>` : ''}
+    <div class="field"><span class="lbl">유형</span><div class="chips">${ACT_TYPES.map((x) => `<button type="button" class="chip" data-act="chip" data-k="type" data-v="${esc(x)}" aria-pressed="${f.type === x}">${esc(x)}</button>`).join('')}</div></div>
+    <div class="field"><label for="e-title">제목</label><input id="e-title" class="in" data-f="title" value="${esc(f.title)}" placeholder="예) 3회차 스터디, 멘토 첫 만남" maxlength="100"></div>
+    <div class="field"><label for="e-date">날짜<span class="req">*</span></label><input id="e-date" class="in" type="date" data-f="date" value="${esc(f.date)}" required></div>
+    <div class="two"><div class="field"><label for="e-start">시작</label><input id="e-start" class="in" type="time" data-f="start" value="${esc(f.start)}"></div>
+      <div class="field"><label for="e-end">종료</label><input id="e-end" class="in" type="time" data-f="end" value="${esc(f.end)}"></div></div>
+    <p class="calc" id="a-hours" style="margin:-8px 0 18px"></p>
+    <div class="field"><label for="e-place">장소</label><input id="e-place" class="in" data-f="place" list="ev-place-list" value="${esc(f.place)}" placeholder="예) 교육관 세미나실, Zoom" maxlength="100"><datalist id="ev-place-list">${places.map((x) => `<option value="${esc(x)}">`).join('')}</datalist></div>
+    <div class="field"><label for="e-memo">메모</label><textarea id="e-memo" class="in" data-f="memo" style="min-height:80px" placeholder="준비할 것, 멘토 이름, 온라인 회의 주소 등">${esc(f.memo)}</textarea></div>
+    <div class="field"><label for="e-writer">작성자</label><input id="e-writer" class="in" data-f="writer" list="ev-writer-list" value="${esc(f.writer)}" placeholder="이름"><datalist id="ev-writer-list">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
+  </form>
+  <div class="sh-foot"><p class="err-msg hidden" id="form-err"></p><button class="btn primary block" data-act="saveEv" id="save-btn">${isNew ? '일정 저장' : '수정 내용 저장'}</button></div>`, { full: true, label: '일정', onClose: () => { st.form = null; } });
+  updHours();
+}
+async function saveEv() {
+  const f = st.form;
+  if (!f || f.kind !== 'ev') return;
+  if (!f.team) { formErr('팀을 골라 주세요.'); return; }
+  if (!f.date) { formErr('날짜를 넣어 주세요.'); return; }
+  if (f.end && !f.start) { formErr('시작 시각도 넣어 주세요.'); fq('#e-start').focus(); return; }
+  formErr('');
+  const d = D();
+  if (f.writer && d.role === 'team') lsSet(LS.me, f.writer);
+  setSaving(true, '저장 중…');
+  try {
+    const r = await api('saveEvent', { event: { id: f.id, team: f.team, type: f.type, date: f.date, start: f.start, end: f.end, title: f.title, place: f.place, memo: f.memo, writer: f.writer } });
+    if (!d.events) d.events = [];
+    upsert(d.events, r.event); saveCache();
+    calGo(r.event.date); // 저장한 날이 보이게
+    await closeAll();
+    if (d.role === 'admin') { st.atab = 'cal'; if (st.cal.team !== 'all' && st.cal.team !== r.event.team) st.cal.team = 'all'; } // 거른 팀과 다른 팀 일정이면 전체 팀으로
+    else st.tab = 'cal';
+    render();
+    toast(f.isNew ? '일정을 저장했습니다' : '수정 내용을 저장했습니다');
+  } catch (e) {
+    setSaving(false);
+    if (e instanceof AppErr && e.code === 'auth') { logout(e.message); return; }
+    formErr(e.message + (e instanceof NetErr ? ' 입력한 내용은 그대로 있으니 다시 저장을 눌러 주세요.' : ''));
+  }
 }
 
 /* ───── 팀 메뉴 ───── */
@@ -834,11 +1054,11 @@ function rcpDraft(r) {
     item: r.item || '', payer: r.payer || '', method: r.method || '', memo: r.memo || '', writer: r.writer || '', status: r.status || '제출', reviewNote: r.reviewNote || '',
     files: filesOf('R:' + r.id).map((x) => Object.assign({}, x, { isNew: false })), remove: [] };
 }
-function openActForm(a) {
+function openActForm(a, pre) {
   const isNew = !a;
-  const draft = isNew ? lsGet(LS.dAct, null) : null;
+  const draft = isNew && !pre ? lsGet(LS.dAct, null) : null; // pre = 일정에서 미리 채운 값
   const fromDraft = !!(draft && draft.team === (D().team || {}).id);
-  const base = a || (fromDraft ? draft : null) || {};
+  const base = a || pre || (fromDraft ? draft : null) || {};
   const me = lsGet(LS.me, '');
   st.form = {
     kind: 'act', id: a ? a.id : (base.id || rid('a')), isNew: isNew, team: a ? a.team : (D().team || {}).id,
@@ -885,7 +1105,7 @@ function updHours() {
   const f = st.form, el = fq('#a-hours');
   if (!f || !el) return;
   const h = hoursBetween(f.start, f.end);
-  el.textContent = h ? '활동 시간 ' + hoursText(h) : '';
+  el.textContent = h ? (f.kind === 'ev' ? hoursText(h) + ' 동안' : '활동 시간 ' + hoursText(h)) : '';
 }
 // 양식 안의 영수증 목록(아직 저장 전인 것 포함)
 function drawRcps() {
@@ -910,7 +1130,7 @@ function saveDraftSoon() {
   clearTimeout(draftTimer);
   draftTimer = setTimeout(() => {
     const f = st.form && st.form.kind === 'rcp' ? st.form.parent : st.form; // 영수증 양식이 위에 열려 있어도 활동 양식을 남긴다
-    if (!f || !f.isNew) return;
+    if (!f || f.kind !== 'act' || !f.isNew) return; // 일정 양식은 남기지 않음
     const o = {};
     ['id', 'team', 'type', 'date', 'start', 'end', 'place', 'attendees', 'topic', 'content', 'next', 'writer'].forEach((k) => { o[k] = f[k]; });
     o.rcps = f.rcps.filter((r) => r.isNew).map((r) => { const x = {}; RCP_DRAFT_KEYS.forEach((k) => { x[k] = r[k]; }); return x; }); // 사진은 남기지 않음
@@ -1121,14 +1341,14 @@ async function viewPhoto(id) {
 function renderAdmin() {
   const d = D();
   const waitN = d.rcps.filter((r) => r.status === '제출').length;
-  if (!['dash', 'acts', 'set'].includes(st.atab)) st.atab = 'acts';
+  if (!['dash', 'acts', 'cal', 'set'].includes(st.atab)) st.atab = 'acts';
   app().innerHTML = `<header class="admin-band"><div class="admin-main" style="padding-top:0;padding-bottom:0">
     <div class="band-top"><span class="course">${esc(d.settings.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="adminMenu" aria-label="관리자 메뉴">${ICON.more}</button></div>
     <h1>교육팀 관리</h1>
     <nav class="atabs" role="tablist">
-      ${[['dash', '팀별 현황'], ['acts', '활동 기록'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'acts' && waitN ? `<span class="cnt">${waitN}</span>` : ''}</button>`).join('')}
+      ${[['dash', '팀별 현황'], ['acts', '활동 기록'], ['cal', '일정'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'acts' && waitN ? `<span class="cnt">${waitN}</span>` : ''}</button>`).join('')}
     </nav></div></header>
-  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'acts' ? adminActs() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
+  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'acts' ? adminActs() : st.atab === 'cal' ? adminCal() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
 }
 function adminDash() {
   const d = D(), goal = d.settings.studyGoal;
@@ -1180,6 +1400,14 @@ function adminActs() {
   <div class="tools"><button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))} 영수증 인쇄</button><span class="sm" style="align-self:center;color:var(--slate);font-size:14px">기록 ${list.length}건, ${stName[f.status] || '영수증'} 합계 <b class="num">${won(total)}</b></span></div>
   ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : f.status === 'all' ? '활동 기록이 없습니다.' : '해당하는 기록이 없습니다.'}</div></div>`}`;
 }
+// 일정 탭: 팀으로 거르고(팀마다 다가오는 일정 수), 전체 팀이면 달력 칸에 팀 이름
+function adminCal() {
+  const d = D(), c = calState(), t = todayStr();
+  if (c.team !== 'all' && !d.teams.some((x) => x.id === c.team)) c.team = 'all';
+  const up = (id) => evs().filter((e) => e.team === id && e.date >= t).length;
+  return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((x) => [x.id, x.name])).map(([k, l]) => `<button class="chip" data-act="calTeam" data-v="${esc(k)}" aria-pressed="${c.team === k}">${esc(l)}${k === 'all' ? '' : ' ' + up(k)}</button>`).join('')}</div>
+  ${calSection(calList(), { admin: true, chipTeam: c.team === 'all' })}`;
+}
 function adminSet() {
   const d = D(), s = d.settings;
   return `<div class="panel" style="padding:16px"><h2>팀별 링크 보내기</h2><p>각 팀 단톡방에 그 팀 링크만 보내 주세요. 링크에 팀 코드가 들어 있어 누르면 바로 그 팀 화면이 열립니다.</p>
@@ -1210,7 +1438,7 @@ function notifyPanel(n) {
     : n.on === true ? '<b>켜져 있습니다.</b> 5분마다 새 기록을 확인해서, 있으면 메일 한 통으로 모아 보냅니다.'
     : n.on === false ? '<b>멈춰 있습니다.</b> 주소는 그대로 두고 [저장]을 한 번 더 누르면 다시 켜집니다.'
     : '메일 보내기 권한이 없어 상태를 알 수 없습니다. Apps Script 편집기에서 setupNotify 를 한 번 실행해 주세요.';
-  return `<div class="panel"><h2>새 기록 알림 메일</h2><p>팀이 활동 기록이나 영수증을 남기거나 고치면 몇 분 안에 이 주소로 메일을 보냅니다. 여러 주소는 쉼표로 구분합니다.</p>
+  return `<div class="panel"><h2>새 기록 알림 메일</h2><p>팀이 활동 기록·영수증·일정을 남기거나 고치면 몇 분 안에 이 주소로 메일을 보냅니다. 여러 주소는 쉼표로 구분합니다.</p>
     <div class="inline-add"><input id="set-notify" class="in" type="email" multiple autocomplete="email" maxlength="300" value="${esc(n.email)}" placeholder="받을 메일 주소"><button class="btn" data-act="saveNotify">저장</button></div>
     <p class="hint" id="notify-state" style="margin:10px 0 0">${state}</p></div>`;
 }
@@ -1434,6 +1662,7 @@ const ACT = {
   chip: (el) => {
     const f = st.form; if (!f) return;
     f[el.dataset.k] = f[el.dataset.k] === el.dataset.v && el.dataset.k === 'method' ? '' : el.dataset.v;
+    if (el.dataset.k === 'team') formErr(''); // 「팀을 골라 주세요」 지움
     el.parentElement.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', String(f[el.dataset.k] === c.dataset.v)));
     saveDraftSoon();
   },
@@ -1525,6 +1754,39 @@ const ACT = {
     try { busy(true); const r = await api('review', { id: id, status: s, note: sendNote }); upsert(D().rcps, r.rcp); saveCache(); render(); rerenderSheets(); toast(s === '확인' ? '확인 완료로 바꿨습니다' : s === '보완요청' ? '보완 요청을 보냈습니다' : '확인 대기로 되돌렸습니다'); }
     catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
   },
+  newEv: (el) => openEvForm(null, { date: el.dataset.date || (st.cal.view === 'cal' && st.cal.sel) || '' }), // 달력에서 고른 날로
+  openEv: (el) => openEv(el.dataset.id),
+  editEv: (el) => { const e = evs().find((x) => x.id === el.dataset.id); if (e) openEvForm(e); },
+  saveEv: () => saveEv(),
+  delEv: async (el) => {
+    const id = el.dataset.id;
+    if (!(await ask('이 일정을 지울까요?', '삭제', true))) return;
+    try {
+      busy(true);
+      await api('deleteEvent', { id: id });
+      D().events = evs().filter((x) => x.id !== id);
+      saveCache(); await closeAll(); render(); toast('삭제했습니다');
+    } catch (e) { toast(e.message, 4000); } finally { busy(false); }
+  },
+  // 지난 일정 → 활동 기록 양식을 유형·날짜·시각·장소·주제로 미리 채워 연다
+  actFromEv: async (el) => {
+    const e = evs().find((x) => x.id === el.dataset.id);
+    if (!e) return;
+    await closeAll();
+    openActForm(null, { type: e.type, date: e.date, start: e.start, end: e.end, place: e.place, topic: e.title });
+  },
+  goEv: (el) => { st.tab = 'cal'; calGo(el.dataset.date); render(); openEv(el.dataset.id); },
+  calView: (el) => { st.cal.view = el.dataset.v; lsSet(LS.calView, st.cal.view); render(); },
+  // 달을 넘기면 오늘(그 달이면), 아니면 그 달 첫 일정, 없으면 1일을 고른다
+  calMove: (el) => {
+    const c = calState(), d = new Date(c.y, c.m + Number(el.dataset.n), 1), k = ymd(d).slice(0, 7);
+    const first = calList().map((e) => e.date).filter((x) => x.startsWith(k)).sort()[0];
+    calGo(todayStr().startsWith(k) ? todayStr() : first || k + '-01'); render();
+  },
+  calToday: () => { calGo(todayStr()); render(); },
+  calPick: (el) => { calGo(el.dataset.d); render(); const b = document.querySelector('.cd[aria-pressed="true"]'); if (b) b.focus({ preventScroll: true }); },
+  calPast: () => { st.cal.past = !st.cal.past; render(); },
+  calTeam: (el) => { st.cal.team = el.dataset.v; render(); },
   exportXlsx: async () => { await closeAll(); exportXlsx(); },
   printTeam: async (el) => { await closeAll(); printTeam(el.dataset.id); },
   doPrint: () => window.print(),
