@@ -231,6 +231,9 @@ select.in option{color:var(--ink)}
 #ev-form.lv-on .lv-off{display:none}
 .late{color:var(--warn);font-weight:700}
 .btn.out{color:var(--blue);border-color:#A9C4F0}
+.pdf-prog{margin:0 0 12px;font-size:16px;font-weight:650}
+.meter.pdf-meter{background:#E4EAF0}
+.meter.pdf-meter i{background:var(--blue);transition:width .2s}
 .ev-linked{display:flex;align-items:center;gap:8px;margin:0;padding:12px 14px;border-radius:12px;background:var(--wait-bg);color:var(--wait);font-size:15px;font-weight:600}
 .ev-linked svg{flex:none}
 #ev-pick .chip{text-align:left}
@@ -443,7 +446,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-06.2';
+const APP_VERSION = '2026-11-06.3';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -1452,7 +1455,8 @@ function rcpCard(r, a) {
     : r.status === '제출' && r.reviewNote ? `<p class="rc-meta">이전 보완 요청: ${esc(r.reviewNote)}</p>` : '';
   const tail = isAdmin ? `<div class="rv"><label for="rv-${esc(r.id)}" class="sr">교육팀 메모</label><input id="rv-${esc(r.id)}" class="in" placeholder="보완 요청 내용(팀에 보입니다)" value="${esc(r.status === '보완요청' ? r.reviewNote || '' : '')}">
       <div class="btn-row"><button class="btn warn" data-act="review" data-id="${esc(r.id)}" data-s="보완요청">보완 요청</button><button class="btn ok" data-act="review" data-id="${esc(r.id)}" data-s="확인">확인 완료</button></div>
-      ${r.status !== '제출' ? `<button class="btn ghost" data-act="review" data-id="${esc(r.id)}" data-s="제출">확인 대기로 되돌리기</button>` : ''}</div>`
+      ${r.status !== '제출' ? `<button class="btn ghost" data-act="review" data-id="${esc(r.id)}" data-s="제출">확인 대기로 되돌리기</button>` : ''}
+      <button class="btn ghost" data-act="rcpPdf1" data-id="${esc(r.id)}">이 영수증 PDF 받기</button></div>`
     : r.status === '보완요청' ? `<button class="btn warn block" style="margin-top:10px" data-act="fixRcp" data-id="${esc(a.id)}" data-rid="${esc(r.id)}">고쳐서 다시 제출</button>` : '';
   return `<div class="rc-card" data-rid="${esc(r.id)}">
     <div class="rc-top"><div><b class="rc-amt">${won(r.amount)}</b><span class="rc-store">${esc(r.store)}</span></div><span class="pill p-${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span></div>
@@ -1557,7 +1561,7 @@ function teamDetailHtml(id) {
     <div class="block"><h3>자율스터디 참석 시간 (공가 확인용, 회당 인정 ${set.studyHours}시간)</h3>
       ${att.length ? `<table class="att-table"><thead><tr><th>이름</th><th class="r">참석</th><th class="r">기록 시간</th><th class="r">인정 시간</th></tr></thead><tbody>${att.map((x) => `<tr><td>${esc(x.name)}</td><td class="r">${x.count}회</td><td class="r">${hoursText(x.hours)}</td><td class="r">${hoursText(Math.min(x.count, set.studyGoal) * set.studyHours)}</td></tr>`).join('')}</tbody></table><p class="hint">인정 시간 = 참석 횟수(목표 ${set.studyGoal}회까지) × ${set.studyHours}시간. 실제 공가 처리 기준에 맞춰 확인해 주세요.</p>` : '<p class="hint">자율스터디 기록이 아직 없습니다.</p>'}</div>
     <div class="block"><h3>활동 기록(붙은 영수증 포함)</h3>${s.acts.length ? `<div class="list" style="margin:0">${s.acts.slice().sort(byDateDesc).map((a) => actRow(a)).join('')}</div>` : '<p class="hint">없음</p>'}</div>
-  </div><div class="sh-foot"><div class="btn-row"><button class="btn" data-act="printTeam" data-id="${esc(id)}">영수증 인쇄</button><button class="btn" data-act="copyLink" data-id="${esc(id)}">팀 링크 복사</button></div></div>`;
+  </div><div class="sh-foot"><div class="btn-row"><button class="btn" data-act="rcpPdf" data-team="${esc(id)}" data-status="all">영수증 PDF</button><button class="btn" data-act="printTeam" data-id="${esc(id)}">영수증 인쇄</button><button class="btn" data-act="copyLink" data-id="${esc(id)}">팀 링크 복사</button></div></div>`;
 }
 function teamDetail(id) {
   const html = teamDetailHtml(id);
@@ -1574,7 +1578,7 @@ function adminActs() {
   const stName = { all: '영수증', wait: '확인 대기 영수증', '보완요청': '보완 요청 영수증', '확인': '확인 완료 영수증' };
   return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((t) => [t.id, t.name])).map(([k, l]) => `<button class="chip" data-act="af" data-k="team" data-v="${esc(k)}" aria-pressed="${f.team === k}">${esc(l)}</button>`).join('')}</div>
   <div class="filters">${[['all', '전체'], ['wait', '확인 대기'], ['보완요청', '보완 요청'], ['확인', '확인 완료']].map(([k, l]) => `<button class="chip" data-act="af" data-k="status" data-v="${k}" aria-pressed="${f.status === k}">${l}${k === 'all' ? '' : ' ' + cnt(k)}</button>`).join('')}</div>
-  <div class="tools"><button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))} 영수증 인쇄</button><span class="sm" style="align-self:center;color:var(--slate);font-size:14px">기록 ${list.length}건, ${stName[f.status] || '영수증'} 합계 <b class="num">${won(total)}</b></span></div>
+  <div class="tools"><button class="btn primary" data-act="rcpPdf" data-team="${esc(f.team)}" data-status="${esc(f.status)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))}${f.status === 'all' ? '' : ' ' + { wait: '확인 대기', '보완요청': '보완 요청', '확인': '확인 완료' }[f.status]} 영수증 PDF 받기</button><button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))} 영수증 인쇄</button><span class="sm" style="align-self:center;color:var(--slate);font-size:14px">기록 ${list.length}건, ${stName[f.status] || '영수증'} 합계 <b class="num">${won(total)}</b></span></div>
   ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : f.status === 'all' ? '활동 기록이 없습니다.' : '해당하는 기록이 없습니다.'}</div></div>`}`;
 }
 // 일정 탭: 팀으로 거르고(팀마다 다가오는 일정 수), 공가 상태로 거르고(승인 대기 먼저 보기), 전체 팀이면 달력 칸에 팀 이름
@@ -1761,6 +1765,258 @@ async function printTeam(id) {
   await Promise.all([...p.querySelectorAll('img')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
   const pr = $('#p-prog'); if (pr) pr.textContent = '준비됐습니다. 인쇄를 누르고 「PDF로 저장」을 고르면 파일로도 남길 수 있습니다.';
   const go = $('#p-go'); if (go) go.disabled = false;
+}
+
+/* ───── 영수증 PDF(바로 내려받기) — 쪽마다 캔버스에 그려 JPEG 한 장씩 담은 A4 PDF. PDF로 올린 영수증은 pdf.js로 쪽을 그려 넣는다 ───── */
+const PDF_W = 1240, PDF_H = 1754, PM = 90; // A4 150dpi, 여백 약 15mm
+const PDF_FONT = '"Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif';
+const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/';
+let pdfjsP = null;
+function loadPdfjs() {
+  if (!pdfjsP) {
+    pdfjsP = import(PDFJS + 'pdf.min.mjs').then((m) => { m.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.mjs'; return m; });
+    pdfjsP.catch(() => { pdfjsP = null; }); // 실패하면 다음에 다시 시도
+  }
+  return pdfjsP;
+}
+// 이미지(JPEG)만 담는 PDF: 쪽마다 JPEG 한 장을 A4 전체에 깐다
+function buildPdf(pages) {
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let len = 0;
+  const push = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (n, body) => { offs[n] = len; push(n + ' 0 obj\n'); body(); push('\nendobj\n'); };
+  push('%PDF-1.4\n'); push(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
+  const W = 595.28, H = 841.89, n = 3 + pages.length * 3;
+  obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => push(`<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_, i) => (3 + i * 3) + ' 0 R').join(' ')}] >>`));
+  pages.forEach((p, i) => {
+    const pn = 3 + i * 3, cs = `q ${W} 0 0 ${H} 0 0 cm /Im${i} Do Q`;
+    obj(pn, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im${i} ${pn + 2} 0 R >> >> /Contents ${pn + 1} 0 R >>`));
+    obj(pn + 1, () => { push(`<< /Length ${cs.length} >>\nstream\n`); push(cs); push('\nendstream'); });
+    obj(pn + 2, () => { push(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`); push(p.jpeg); push('\nendstream'); });
+  });
+  const xref = len;
+  push(`xref\n0 ${n}\n0000000000 65535 f \n`);
+  for (let k = 1; k < n; k++) push(String(offs[k]).padStart(10, '0') + ' 00000 n \n');
+  push(`trailer\n<< /Size ${n} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function pdfPage() { const c = document.createElement('canvas'); c.width = PDF_W; c.height = PDF_H; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, PDF_W, PDF_H); return { c, g }; }
+function pdfJpeg(c) { return new Promise((res, rej) => c.toBlob((b) => (b ? b.arrayBuffer().then((ab) => res({ jpeg: new Uint8Array(ab), w: c.width, h: c.height })) : rej(new Error('그림 변환 실패'))), 'image/jpeg', 0.86)); }
+function pfont(g, size, weight) { g.font = `${weight || 400} ${size}px ${PDF_FONT}`; }
+function pline(g, x1, y1, x2, color, w) { g.strokeStyle = color; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y1); g.stroke(); }
+// 칸 너비에 맞춰 자르고 … 붙이기(more = 무조건 …)
+function fitText(g, s, maxW, more) {
+  s = String(s || '');
+  if (!more && g.measureText(s).width <= maxW) return s;
+  while (s.length && g.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+  return s + '…';
+}
+// 띄어쓰기에서 줄을 바꾸고, 너무 긴 낱말은 글자 단위로. maxLines 를 넘으면 마지막 줄에 …
+function wrapLines(g, text, maxW, maxLines) {
+  const lines = [];
+  String(text || '').split('\n').forEach((para) => {
+    let cur = '';
+    para.split(/(\s+)/).forEach((tok) => {
+      if (!tok) return;
+      if (g.measureText(cur + tok).width <= maxW) { cur += tok; return; }
+      if (cur.trim()) lines.push(cur.trimEnd());
+      cur = tok.trimStart();
+      while (cur && g.measureText(cur).width > maxW) {
+        let k = cur.length;
+        while (k > 1 && g.measureText(cur.slice(0, k)).width > maxW) k--;
+        lines.push(cur.slice(0, k)); cur = cur.slice(k);
+      }
+    });
+    lines.push(cur.trimEnd());
+  });
+  if (maxLines && lines.length > maxLines) { const l = lines.slice(0, maxLines); l[maxLines - 1] = fitText(g, l[maxLines - 1], maxW, true); return l; }
+  return lines;
+}
+const PDF_STATUS = { '제출': ['#E6EDF6', '#34557D'], '확인': ['#E2F3EB', '#0F7A54'], '보완요청': ['#FCEFD9', '#9A5A08'] };
+// 영수증 한 쪽 머리: 팀·순번, 금액·사용처·상태, 사용일·분류·결제·활동·메모. 그림을 놓을 y 를 돌려준다
+function drawRcpHead(g, r, ctx) {
+  const t = teamOf(r.team) || { name: teamName(r.team) }, a = D().acts.find((x) => x.id === r.actId);
+  let y = PM + 14;
+  pfont(g, 24, 600); g.fillStyle = '#5B6B7C'; g.textAlign = 'left';
+  g.fillText(`${ctx.course} · ${t.name} 활동지원비 영수증`, PM, y);
+  g.textAlign = 'right'; g.fillText(`${ctx.no} / ${ctx.total}${ctx.cont ? ' (이어서)' : ''}`, PDF_W - PM, y); g.textAlign = 'left';
+  y += 24; pline(g, PM, y, PDF_W - PM, '#111', 3);
+  y += 76;
+  const label = STATUS_LABEL[r.status] || r.status || '', col = PDF_STATUS[r.status] || ['#EEF2F6', '#5B6B7C'];
+  pfont(g, 26, 700); const bw = g.measureText(label).width + 40;
+  g.fillStyle = col[0]; if (g.roundRect) { g.beginPath(); g.roundRect(PDF_W - PM - bw, y - 42, bw, 52, 26); g.fill(); } else g.fillRect(PDF_W - PM - bw, y - 42, bw, 52);
+  g.fillStyle = col[1]; g.textAlign = 'center'; g.fillText(label, PDF_W - PM - bw / 2, y - 7); g.textAlign = 'left';
+  pfont(g, 56, 760); g.fillStyle = '#111'; const amt = won(r.amount); g.fillText(amt, PM, y);
+  const aw = g.measureText(amt).width;
+  pfont(g, 40, 700); g.fillText(fitText(g, r.store, PDF_W - 2 * PM - aw - bw - 64), PM + aw + 28, y);
+  y += 22;
+  pfont(g, 28, 400); g.fillStyle = '#333';
+  [r.date + (r.category ? ' · ' + r.category : '') + (r.item ? ' · ' + r.item : ''),
+    r.payer || r.method ? '결제: ' + [r.payer, r.method].filter(Boolean).join(', ') : '',
+    a ? '활동: ' + fmtD(a.date) + ' ' + (a.topic || '') : '',
+    r.memo ? '메모: ' + r.memo : '',
+    r.reviewNote ? '교육팀 메모: ' + r.reviewNote : ''
+  ].filter(Boolean).forEach((s) => wrapLines(g, s, PDF_W - 2 * PM, 2).forEach((l) => { y += 42; g.fillText(l, PM, y); }));
+  y += 30; pline(g, PM, y, PDF_W - PM, '#C9D1DA', 2);
+  return y + 26;
+}
+// 그림 1~4장: 가장 크게 보이는 칸 나누기(1×1·2×1·1×2·2×2·3×1·1×3)를 골라 비율대로 넣는다
+function drawGrid(g, items, x, y, w, h) {
+  const n = items.length, gap = 24;
+  if (!n) { pfont(g, 30, 500); g.fillStyle = '#8592A0'; g.textAlign = 'center'; g.fillText('(영수증 사진 없음)', x + w / 2, y + 90); g.textAlign = 'left'; return; }
+  const grids = n === 1 ? [[1, 1]] : n === 2 ? [[2, 1], [1, 2]] : [[2, 2], [3, 1], [1, 3]].filter(([c, rr]) => c * rr >= n);
+  let best = null;
+  grids.forEach(([cols, rows]) => {
+    const cw = (w - gap * (cols - 1)) / cols, ch = (h - gap * (rows - 1)) / rows;
+    const area = items.reduce((s, it) => { if (it.err) return s + cw * ch * 0.2; const k = Math.min(cw / it.w, ch / it.h); return s + it.w * k * it.h * k; }, 0);
+    if (!best || area > best.area) best = { cols, cw, ch, area };
+  });
+  items.forEach((it, i) => {
+    const cx = x + (i % best.cols) * (best.cw + gap), cy = y + Math.floor(i / best.cols) * (best.ch + gap);
+    g.strokeStyle = '#D5DCE3'; g.lineWidth = 2; g.strokeRect(cx, cy, best.cw, best.ch);
+    if (it.err) {
+      pfont(g, 24, 600); g.fillStyle = '#9A5A08';
+      wrapLines(g, it.err, best.cw - 40, 3).forEach((l, k) => g.fillText(l, cx + 20, cy + 50 + k * 34));
+      pfont(g, 20, 400); g.fillStyle = '#8592A0'; g.fillText(fitText(g, it.name || '', best.cw - 40), cx + 20, cy + 170);
+      return;
+    }
+    const k = Math.min((best.cw - 8) / it.w, (best.ch - 8) / it.h), dw = it.w * k, dh = it.h * k;
+    g.drawImage(it.src, cx + (best.cw - dw) / 2, cy + (best.ch - dh) / 2, dw, dh);
+  });
+}
+function drawFoot(g, ctx) {
+  pfont(g, 20, 400); g.fillStyle = '#8592A0'; g.textAlign = 'left';
+  g.fillText(`${ctx.course} 팀 기록 앱에서 만든 문서 · 출력 ${ctx.at}`, PM, PDF_H - 60);
+  g.textAlign = 'right'; g.fillText(ctx.page + '쪽', PDF_W - PM, PDF_H - 60); g.textAlign = 'left';
+}
+// 팀 요약 쪽: 예산·사용·잔액과 영수증 목록 표(칸 글이 길면 두 줄, 쪽이 차면 다음 쪽에 머리줄부터 이어서)
+function drawSummary(team, rcps, ctx) {
+  const s = teamStats(team.id), out = [];
+  const cols = [['#', 44, 'center'], ['사용일', 140], ['사용처', 200], ['분류·산 것', 270], ['결제', 160], ['금액', 130, 'right'], ['상태', 116, 'center']];
+  const rows = rcps.map((r, i) => [String(i + 1), r.date, r.store, [r.category, r.item].filter(Boolean).join(', '), [r.payer, r.method].filter(Boolean).join(', '), won(r.amount), STATUS_LABEL[r.status] || r.status]);
+  rows.push(['', '', '합계', '', '', won(sum(rcps.map((r) => r.amount))), '']);
+  const tx = (x, w, al) => (al === 'center' ? x + w / 2 : al === 'right' ? x + w - 10 : x + 10);
+  let i = 0;
+  while (i < rows.length) {
+    const { c, g } = pdfPage();
+    let y = PM + 40, x;
+    if (!out.length) {
+      pfont(g, 44, 760); g.fillStyle = '#111'; g.fillText(`${ctx.course} ${team.name} 활동지원비 사용 내역`, PM, y);
+      y += 52; pfont(g, 26, 400); g.fillStyle = '#444';
+      g.fillText(fitText(g, `${team.project ? team.project + ' · ' : ''}예산 ${won(s.budget)} · 사용 ${won(s.spent)} · 잔액 ${won(s.remain)} · 확인 완료 ${won(s.okAmt)}`, PDF_W - 2 * PM), PM, y);
+      y += 40; g.fillText(`이 문서의 영수증 ${rcps.length}건 · 출력 ${ctx.at}`, PM, y);
+      y += 40;
+    } else { pfont(g, 26, 600); g.fillStyle = '#5B6B7C'; g.fillText(`${team.name} 활동지원비 사용 내역(이어서)`, PM, y); y += 30; }
+    g.fillStyle = '#F1F3F6'; g.fillRect(PM, y, PDF_W - 2 * PM, 54); pfont(g, 22, 700); g.fillStyle = '#333';
+    x = PM; cols.forEach(([l, w, al]) => { g.textAlign = al || 'left'; g.fillText(l, tx(x, w, al), y + 35); x += w; }); g.textAlign = 'left';
+    y += 54; pline(g, PM, y, PDF_W - PM, '#9AA4AF', 2);
+    while (i < rows.length) {
+      const row = rows[i], last = i === rows.length - 1;
+      pfont(g, 22, last ? 700 : 400);
+      const cells = cols.map(([, w], ci) => wrapLines(g, row[ci], w - 20, 2));
+      const h = 18 + Math.max(...cells.map((l) => l.length)) * 30;
+      if (y + h > PDF_H - 130) break;
+      g.fillStyle = '#111'; x = PM;
+      cols.forEach(([, w, al], ci) => { g.textAlign = al || 'left'; cells[ci].forEach((l, k) => g.fillText(l, tx(x, w, al), y + 33 + k * 30)); x += w; });
+      g.textAlign = 'left';
+      y += h; pline(g, PM, y, PDF_W - PM, last ? '#9AA4AF' : '#E1E6EB', last ? 2 : 1);
+      i++;
+    }
+    out.push({ c, g });
+  }
+  return out;
+}
+// 영수증 한 건의 그림들: 사진은 원본 그대로, PDF는 쪽마다(4쪽까지) 그림으로. 못 연 파일은 이름과 안내만
+async function rcpSources(r, job) {
+  const out = [];
+  for (const f of filesOf('R:' + r.id)) {
+    if (job.cancel) break;
+    try {
+      const url = await getFull(f.id);
+      if (f.mime === 'application/pdf') {
+        const lib = await loadPdfjs();
+        const doc = await lib.getDocument({ data: new Uint8Array(await (await fetch(url)).arrayBuffer()) }).promise;
+        for (let p = 1; p <= Math.min(doc.numPages, 4); p++) {
+          const page = await doc.getPage(p), v0 = page.getViewport({ scale: 1 });
+          const vp = page.getViewport({ scale: Math.min(3, 1600 / Math.max(v0.width, v0.height)) });
+          const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+          const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+          await page.render({ canvasContext: g, viewport: vp }).promise;
+          out.push({ src: c, w: c.width, h: c.height }); job.pdfPages++;
+        }
+      } else {
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('decode')); im.src = url; });
+        out.push({ src: img, w: img.naturalWidth, h: img.naturalHeight });
+      }
+    } catch (e) {
+      job.failed++;
+      out.push({ err: f.mime === 'application/pdf' ? 'PDF 영수증을 그리지 못했습니다. 원본은 구글 드라이브 사진 폴더에 있습니다.' : '이 사진을 열지 못했습니다. 원본은 구글 드라이브 사진 폴더에 있습니다.', name: f.name });
+    }
+  }
+  return out;
+}
+async function pool(items, n, fn) { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]); })); }
+function downloadBlob(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 30000); }
+const fileSafe = (s) => String(s || '').replace(/[\\/:*?"<>|\n\r\t]+/g, '_').replace(/\s+/g, ' ').trim().slice(0, 60);
+// 영수증 PDF 만들기: o.summary 면 팀마다 요약 쪽을 앞에. 사진은 3개씩 함께 불러온다
+async function rcpPdf(list, o) {
+  if (!list.length) { toast('PDF로 만들 영수증이 없습니다.'); return; }
+  const job = { cancel: false, pdfPages: 0, failed: 0 };
+  const w = openSheet(`${sheetHead('영수증 PDF')}<div class="sh-body"><p class="pdf-prog" id="pdf-prog">준비하는 중…</p><div class="meter pdf-meter"><i id="pdf-bar" style="width:0%"></i></div>
+    <p class="hint">영수증 ${list.length}건을 한 장씩 A4로 정리합니다. 사진을 불러오느라 영수증이 많으면 몇 분 걸릴 수 있습니다.</p></div>
+    <div class="sh-foot"><button class="btn block" data-act="closeSheet">취소</button></div>`, { label: '영수증 PDF', onClose: () => { job.cancel = true; } });
+  const prog = (msg, pct) => { const p = $('#pdf-prog', w), b = $('#pdf-bar', w); if (p) p.textContent = msg; if (b && pct !== undefined) b.style.width = Math.round(pct) + '%'; };
+  try {
+    const now = new Date(), d = D();
+    const ctx = { course: d.settings.courseName || 'AI프론티어', at: fmtD(todayStr(), true) + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()), page: 0, total: list.length, no: 0 };
+    const text = list.map((r) => [r.store, r.item, r.category, r.payer, r.method, r.memo, r.reviewNote, teamName(r.team), (d.acts.find((x) => x.id === r.actId) || {}).topic].join(' ')).join(' ');
+    try { await Promise.all([400, 600, 700, 760].map((wt) => document.fonts.load(`${wt} 30px "Pretendard Variable"`, text + ' 활동지원비 영수증 사용 내역 예산 잔액 확인 완료 대기 보완 요청 합계 출력 결제 분류 산 것 이어서 쪽 문서 팀 기록 앱에서 만든 0123456789원,.()·…'))); } catch (e) { /* 글꼴 없으면 기본 글꼴 */ }
+    const files = list.flatMap((r) => filesOf('R:' + r.id));
+    let got = 0;
+    prog(files.length ? `사진 불러오는 중 0/${files.length}` : 'PDF 만드는 중…', 0);
+    await pool(files, 3, async (f) => { if (job.cancel) return; try { await getFull(f.id); } catch (e) { /* 그릴 때 안내 */ } got++; prog(`사진 불러오는 중 ${got}/${files.length}`, got / files.length * 70); });
+    const pages = [], order = new Map(d.teams.map((t, i) => [t.id, i]));
+    const groups = [];
+    list.slice().sort((a, b) => (order.get(a.team) - order.get(b.team)) || a.date.localeCompare(b.date) || String(a.created).localeCompare(String(b.created))).forEach((r) => {
+      let g = groups[groups.length - 1];
+      if (!g || g.team !== r.team) groups.push(g = { team: r.team, rcps: [] });
+      g.rcps.push(r);
+    });
+    for (const grp of groups) {
+      if (job.cancel) return;
+      if (o.summary) for (const sp of drawSummary(teamOf(grp.team) || { id: grp.team, name: teamName(grp.team) }, grp.rcps, ctx)) { ctx.page++; drawFoot(sp.g, ctx); pages.push(await pdfJpeg(sp.c)); }
+      for (const r of grp.rcps) {
+        if (job.cancel) return;
+        ctx.no++;
+        const src = await rcpSources(r, job);
+        const parts = [];
+        for (let k = 0; k < Math.max(src.length, 1); k += 4) parts.push(src.slice(k, k + 4));
+        for (let k = 0; k < parts.length; k++) {
+          const { c, g } = pdfPage();
+          const y = drawRcpHead(g, r, Object.assign({}, ctx, { cont: k > 0 }));
+          drawGrid(g, parts[k], PM, y, PDF_W - 2 * PM, PDF_H - 130 - y);
+          ctx.page++; drawFoot(g, ctx);
+          pages.push(await pdfJpeg(c));
+        }
+        prog(`PDF 만드는 중 ${ctx.no}/${list.length}`, 70 + ctx.no / list.length * 30);
+      }
+    }
+    if (job.cancel) return;
+    const blob = buildPdf(pages);
+    downloadBlob(blob, o.file);
+    window.__lastPdf = { pages: pages.length, pdfPages: job.pdfPages, failed: job.failed, name: o.file, size: blob.size }; // 시험용
+    if (w.isConnected) await closeSheet();
+    toast(`영수증 PDF를 내려받았습니다(${pages.length}쪽)${job.failed ? `. 열지 못한 파일 ${job.failed}개는 안내 문구로 넣었습니다` : ''}`, 4500);
+  } catch (e) {
+    prog('PDF를 만들지 못했습니다: ' + e.message);
+  }
+}
+function rcpPdfFor(team, status) {
+  const d = D(), stName = { wait: '확인대기', '보완요청': '보완요청', '확인': '확인완료' };
+  const list = d.rcps.filter((r) => (team === 'all' || r.team === team) && (status === 'all' || (status === 'wait' ? r.status === '제출' : r.status === status)));
+  const scope = (team === 'all' ? '전체' : teamName(team)) + (stName[status] ? '_' + stName[status] : '');
+  rcpPdf(list, { summary: true, file: fileSafe(`${d.settings.courseName || 'AI프론티어'}_${scope}_영수증_${todayStr()}`) + '.pdf' });
 }
 
 /* ───────── 버튼 동작 ───────── */
@@ -2013,6 +2269,12 @@ const ACT = {
   printLeave: async (el) => { await closeAll(); printLeave(el.dataset.id); },
   exportXlsx: async () => { await closeAll(); exportXlsx(); },
   printTeam: async (el) => { await closeAll(); printTeam(el.dataset.id); },
+  rcpPdf: (el) => rcpPdfFor(el.dataset.team, el.dataset.status || 'all'),
+  rcpPdf1: (el) => {
+    const r = D().rcps.find((x) => x.id === el.dataset.id);
+    if (!r) return;
+    rcpPdf([r], { summary: false, file: fileSafe(`${D().settings.courseName || 'AI프론티어'}_${teamName(r.team)}_영수증_${r.date}_${r.store}`) + '.pdf' });
+  },
   doPrint: () => window.print(),
   closePrint: () => { const p = $('#print'); if (p) { if (p._restore) p._restore(); p.remove(); } }
 };
