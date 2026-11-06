@@ -13,10 +13,11 @@
  * 「AI프론티어 팀 기록 (사진·영수증)」 폴더에 쌓인다. 팀 코드가 맞아야만 읽고 쓸 수 있다.
  * 영수증은 따로 올리지 않고 활동 기록에 붙인다(영수증 탭의 「연결활동」 칸 = 활동 id).
  * 팀이 미리 정해 두는 스터디·멘토링 일정은 「일정」 탭에 쌓인다(이 탭이 없던 시트는 첫 일정을 저장할 때 만든다).
+ * 일정에 「공가 지원 요청」을 체크하면 교육팀 승인을 거친다(승인상태: 대기 → 승인 또는 보완요청). 승인된 일정은 공가 증빙으로 쓴다.
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-05.1';
+var VERSION = '2026-11-06.1';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -28,6 +29,7 @@ var DEFAULT_TEAMS = [
 ];
 var ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 var RCP_STATUS = ['제출', '확인', '보완요청'];
+var EV_STATUS = ['대기', '승인', '보완요청']; // 공가 지원 요청 일정의 승인 상태
 var MAX_FILES = 4;
 var MAX_FILE_B64 = 12 * 1024 * 1024;   // base64 길이 기준(원본 약 9MB)
 var MAX_THUMB = 45000;                 // 시트 셀 한도 50,000자
@@ -56,7 +58,9 @@ var TABS = {
     ['created', '작성시각', 's'], ['updated', '수정시각', 's'], ['deleted', '삭제', 't']] },
   ev: { name: '일정', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['type', '유형', 't'], ['date', '날짜', 'd'],
     ['start', '시작', 'h'], ['end', '종료', 'h'], ['title', '제목', 't'], ['place', '장소', 't'], ['memo', '메모', 't'],
-    ['writer', '작성자', 't'], ['created', '작성시각', 's'], ['updated', '수정시각', 's'], ['deleted', '삭제', 't']] },
+    ['writer', '작성자', 't'], ['created', '작성시각', 's'], ['updated', '수정시각', 's'], ['deleted', '삭제', 't'],
+    ['leave', '공가요청', 't'], ['people', '공가대상', 't'], ['status', '승인상태', 't'], ['reviewNote', '확인메모', 't'],
+    ['reviewed', '승인시각', 's'], ['actId', '활동기록', 't']] }, // 11-06에 붙인 열은 끝에 둔다(ensureCols_)
   file: { name: '파일', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['owner', '대상', 't'], ['driveId', '드라이브ID', 't'],
     ['name', '파일명', 't'], ['mime', '형식', 't'], ['size', '크기', 'n'], ['created', '작성시각', 's'], ['deleted', '삭제', 't'],
     ['thumb', '썸네일', 't']] },
@@ -78,7 +82,7 @@ var ROUTES = {
   ping: ping_, setup: setup_, load: load_,
   saveAct: saveAct_, deleteAct: deleteAct_,
   saveRcp: saveRcp_, deleteRcp: deleteRcp_,
-  saveEvent: saveEvent_, deleteEvent: deleteEvent_,
+  saveEvent: saveEvent_, deleteEvent: deleteEvent_, reviewEvent: reviewEvent_,
   getFile: getFile_, saveMembers: saveMembers_,
   review: review_, saveTeams: saveTeams_, saveSettings: saveSettings_
 };
@@ -222,7 +226,13 @@ function saveAct_(req) {
     writeRow_('act', obj, ex ? ex._row : 0);
     var files = applyFiles_(tid, 'A:' + id, plan);
     log_(who, ex ? '활동 수정' : '활동 등록', id, obj.date + ' ' + obj.type + ' ' + obj.topic);
-    return { act: pubAct_(merge_(ex, obj)), files: files };
+    var linked = null;
+    var ev = req.evId ? find_(evRows_(), str_(req.evId, 40)) : null;
+    if (ev && ev.deleted !== 'Y' && ev.team === tid) { // 일정에서 쓴 활동 기록: 그 일정과 잇는다(공가 증빙에 함께 들어감)
+      if (ev.actId !== id) { ensureCols_('ev'); writeRow_('ev', { actId: id }, ev._row); }
+      linked = pubEv_(merge_(ev, { actId: id }));
+    }
+    return { act: pubAct_(merge_(ex, obj)), files: files, event: linked };
   });
 }
 
@@ -311,20 +321,34 @@ function saveEvent_(req) {
     if (!teamById_(tid)) throw appErr_('bad', '팀을 찾을 수 없습니다.');
     var date = date_(e.date);
     if (!date) throw appErr_('bad', '날짜를 확인해 주세요.');
-    if (!ss_().getSheetByName(TABS.ev.name)) ensureTab_(ss_(), 'ev');
+    var start = time_(e.start), end = start ? time_(e.end) : '';
+    var title = str_(e.title, 100), place = str_(e.place, 100), people = list_(e.people, 40);
+    var leave = e.leave === true || e.leave === 'Y';
+    if (leave) { // 공가 증빙에 꼭 있어야 하는 칸
+      if (!start || !end) throw appErr_('bad', '공가 지원 요청은 시작·종료 시각을 넣어 주세요.');
+      if (!place) throw appErr_('bad', '공가 지원 요청은 장소를 넣어 주세요.');
+      if (!title) throw appErr_('bad', '공가 지원 요청은 학습 주제를 넣어 주세요.');
+      if (!people.length) throw appErr_('bad', '공가 지원 대상자를 한 명 이상 골라 주세요.');
+    }
+    ensureCols_('ev');
     var id = cleanId_(e.id, 'e');
     var ex = find_(readAll_('ev'), id);
     if (ex && ex.team !== tid) throw appErr_('forbidden', '다른 팀의 일정입니다.');
     if (ex && ex.deleted === 'Y') throw appErr_('deleted', '이미 지운 일정입니다.');
     var now = now_();
-    var start = time_(e.start);
     var obj = {
-      id: id, team: tid, type: ACT_TYPES.indexOf(e.type) >= 0 ? e.type : '기타', date: date, start: start, end: start ? time_(e.end) : '',
-      title: str_(e.title, 100), place: str_(e.place, 100), memo: str_(e.memo, 2000), writer: str_(e.writer, 30), updated: now, deleted: ''
+      id: id, team: tid, type: ACT_TYPES.indexOf(e.type) >= 0 ? e.type : '기타', date: date, start: start, end: end,
+      title: title, place: place, memo: str_(e.memo, 2000), writer: str_(e.writer, 30), updated: now, deleted: '',
+      leave: leave ? 'Y' : '', people: leave ? people.join(', ') : ''
     };
     if (!ex) obj.created = now;
+    // 승인 상태: 공가 요청이 아니면 비움. 팀이 고치면 다시 승인 대기(내용이 그대로면 승인 유지), 교육팀이 처음 공가로 정하면 바로 승인
+    var same = !!ex && ex.leave === 'Y' && ['type', 'date', 'start', 'end', 'title', 'place', 'memo', 'people'].every(function (k) { return String(ex[k]) === String(obj[k]); });
+    if (!leave) { obj.status = ''; obj.reviewed = ''; obj.reviewNote = ''; }
+    else if (who.admin) { if (!ex || ex.leave !== 'Y' || !ex.status) { obj.status = '승인'; obj.reviewed = now; } }
+    else if (!(same && ex.status === '승인')) { obj.status = '대기'; obj.reviewed = ''; }
     writeRow_('ev', obj, ex ? ex._row : 0);
-    log_(who, ex ? '일정 수정' : '일정 등록', id, obj.date + ' ' + obj.type + ' ' + obj.title);
+    log_(who, ex ? '일정 수정' : '일정 등록', id, obj.date + ' ' + obj.type + ' ' + obj.title + (leave ? ' (공가 요청)' : ''));
     return { event: pubEv_(merge_(ex, obj)) };
   });
 }
@@ -335,9 +359,27 @@ function deleteEvent_(req) {
     var ex = find_(evRows_(), String(req.id || ''));
     if (!ex || ex.deleted === 'Y') return { deleted: true };
     if (!who.admin && ex.team !== who.team.id) throw appErr_('forbidden', '다른 팀의 일정입니다.');
+    if (!who.admin && ex.leave === 'Y' && ex.status === '승인') throw appErr_('locked', '교육팀이 승인한 공가 일정은 지울 수 없습니다. 교육팀에 알려 주세요.');
     writeRow_('ev', { deleted: 'Y', updated: now_() }, ex._row);
     log_(who, '일정 삭제', ex.id, ex.date + ' ' + ex.type + ' ' + ex.title);
     return { deleted: true };
+  });
+}
+
+// 공가 지원 요청 일정을 교육팀이 승인·보완 요청하거나 승인 대기로 되돌린다
+function reviewEvent_(req) {
+  var who = auth_(req);
+  if (!who.admin) throw appErr_('forbidden', '교육팀만 할 수 있습니다.');
+  return withLock_(function () {
+    var ex = find_(evRows_(), String(req.id || ''));
+    if (!ex || ex.deleted === 'Y') throw appErr_('not_found', '일정을 찾을 수 없습니다.');
+    if (ex.leave !== 'Y') throw appErr_('bad', '공가 지원 요청이 아닌 일정입니다.');
+    var status = EV_STATUS.indexOf(req.status) >= 0 ? req.status : '대기';
+    var obj = { status: status, reviewNote: str_(req.note, 500), reviewed: status === '대기' ? '' : now_() };
+    ensureCols_('ev');
+    writeRow_('ev', obj, ex._row);
+    log_(who, '공가 ' + (status === '대기' ? '승인 대기로' : status), ex.id, ex.date + ' ' + ex.title + ' ' + obj.reviewNote);
+    return { event: pubEv_(merge_(ex, obj)) };
   });
 }
 
@@ -515,6 +557,20 @@ function ensureTab_(ss, key) {
     if (c[0] === 'thumb') sh.hideColumns(i + 1);
   });
   return sh;
+}
+
+// 탭이 없으면 만들고, 있으면 머리글에 없는 열만 오른쪽 끝에 붙인다(먼저 만든 시트를 그대로 쓰려고)
+function ensureCols_(key) {
+  var ss = ss_(), t = TABS[key], sh = ss.getSheetByName(t.name);
+  if (!sh) { ensureTab_(ss, key); if (_C.hdr) delete _C.hdr[key]; return; }
+  var hdr = header_(key);
+  var add = t.cols.filter(function (c) { return hdr.indexOf(c[1]) < 0; });
+  if (!add.length) return;
+  var c0 = hdr.length + 1, rows = Math.max(sh.getMaxRows() - 1, 1);
+  sh.getRange(1, c0, 1, add.length).setValues([add.map(function (c) { return c[1]; })]).setFontWeight('bold').setBackground('#e8eef8');
+  add.forEach(function (c, i) { sh.getRange(2, c0 + i, rows, 1).setNumberFormat(c[2] === 'n' ? '#,##0' : '@'); });
+  delete _C.hdr[key];
+  if (_C.rows) delete _C.rows[key];
 }
 
 function sheet_(key) {
@@ -811,7 +867,7 @@ function notifyMail_(rows, now) {
     e.summary = r.summary;
   });
   labels.sort(function (a, b) { return (a in rank ? rank[a] : 99) - (b in rank ? rank[b] : 99); });
-  var lines = [], shown = [], n = { act: 0, rcp: 0, ev: 0, mem: 0 };
+  var lines = [], shown = [], n = { act: 0, rcp: 0, ev: 0, lv: 0, mem: 0 };
   labels.forEach(function (label) {
     var g = groups[label], used = {}, out = [];
     g.actIds.forEach(function (id) {
@@ -833,9 +889,10 @@ function notifyMail_(rows, now) {
       out.push('- ' + rcpLine_(x, g.rcp[rid], x ? find_(acts, x.actId) : null));
     });
     g.evIds.forEach(function (id) {
-      var e = g.ev[id];
+      var e = g.ev[id], x = find_(evs, id), lv = !!x && x.leave === 'Y';
       n.ev++;
-      out.push('- ' + (e.del ? '일정 삭제' : e.isNew ? '새 일정' : '일정 고침') + ': ' + evLine_(find_(evs, id), e));
+      if (lv && !e.del) n.lv++;
+      out.push('- ' + (e.del ? '일정 삭제' : e.isNew ? '새 일정' : '일정 고침') + (lv ? '(공가 요청)' : '') + ': ' + evLine_(x, e));
     });
     if (g.members !== null) { n.mem++; out.push('- 팀원 수정: ' + (g.members || '(모두 지움)')); }
     if (!out.length) return;
@@ -851,7 +908,7 @@ function notifyMail_(rows, now) {
   var parts = [];
   if (n.act) parts.push('활동 기록 ' + n.act + '건');
   if (n.rcp) parts.push('영수증 ' + n.rcp + '건');
-  if (n.ev) parts.push('일정 ' + n.ev + '건');
+  if (n.ev) parts.push('일정 ' + n.ev + '건' + (n.lv ? '(공가 요청 ' + n.lv + '건)' : ''));
   if (n.mem) parts.push('팀원 수정');
   var at = Utilities.formatDate(new Date(now), TZ, 'yyyy-MM-dd HH:mm');
   return {
@@ -883,6 +940,7 @@ function evLine_(x, e) {
   if (!x) return e.summary;
   var s = md_(x.date) + (x.start ? ' ' + x.start + (x.end ? '–' + x.end : '') : '') + ' ' + (x.type || '') + (x.title ? ' 「' + x.title + '」' : '');
   if (x.place) s += ' · ' + x.place;
+  if (x.leave === 'Y') s += ' · 대상 ' + splitList_(x.people).length + '명';
   if (x.writer) s += ' · 작성 ' + x.writer;
   return s;
 }
@@ -972,7 +1030,8 @@ function pubRcp_(r) {
 
 function pubEv_(e) {
   return { id: e.id, team: e.team, type: e.type, date: e.date, start: e.start, end: e.end, title: e.title, place: e.place,
-    memo: e.memo, writer: e.writer, created: e.created, updated: e.updated };
+    memo: e.memo, writer: e.writer, created: e.created, updated: e.updated, leave: e.leave === 'Y', people: splitList_(e.people),
+    status: e.leave === 'Y' ? e.status || '대기' : '', reviewNote: e.reviewNote || '', reviewed: e.reviewed || '', actId: e.actId || '' };
 }
 
 function pubFile_(f) {
