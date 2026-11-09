@@ -215,6 +215,8 @@ select.in option{color:var(--ink)}
 .cv.ev-wait{background:#fff;color:#1A4FA8;outline:1px dashed #6E92D6;outline-offset:-1px}
 .cv.ev-ok{background:#0F7A54;color:#fff}
 .cv.ev-fix{background:#FCEFD9;color:#9A5A08}
+.cv.ev-rec{background:#E3EEFF;color:#1A56C4}
+.day-h .cnt{font-weight:500;color:var(--mute);margin-left:4px}
 .pill.lv-대기{background:#fff;color:#1A4FA8;box-shadow:inset 0 0 0 1px #9DB8E8}
 .pill.lv-승인{background:var(--ok-bg);color:var(--ok)}
 .pill.lv-보완요청{background:var(--warn-bg);color:var(--warn)}
@@ -446,7 +448,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-06.3';
+const APP_VERSION = '2026-11-09.1';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -822,7 +824,8 @@ function renderTeam() {
   const fixes = s.rcps.filter((r) => r.status === '보완요청');
   const myActs = s.acts.slice().sort(byDateDesc);
   const myEvs = calList(), today = todayStr(), upEvs = myEvs.filter((e) => e.date >= today).sort(byEvAsc);
-  const tabs = [['acts', '활동 기록', myActs.length], ['cal', '일정', upEvs.length]].concat(others.length ? [['others', '다른 팀', others.length]] : []);
+  // 일정과 활동 기록은 한 화면(달력 + 고른 날 + 활동 기록 목록). 다른 팀 기록을 볼 수 있을 때만 탭
+  const tabs = others.length ? [['acts', '우리 팀', myActs.length], ['others', '다른 팀', others.length]] : [];
   if (!tabs.some((x) => x[0] === st.tab)) st.tab = 'acts';
   const nx = upEvs[0], evFix = myEvs.filter((e) => lvState(e) === '보완요청');
   const recDue = myEvs.filter((e) => e.leave && dayDiff(e.date) <= 0 && dayDiff(e.date) >= -30 && !actOfEv(e)).sort((x, y) => byEvAsc(y, x)); // 활동 기록을 기다리는 공가 일정
@@ -842,9 +845,9 @@ function renderTeam() {
     ${evFix.length ? `<button class="notice" data-act="goEv" data-id="${esc(evFix[0].id)}" data-date="${esc(evFix[0].date)}"><span class="grow">교육팀이 공가 일정 ${evFix.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${recDue.length ? `<button class="notice info" data-act="actFromEv" data-id="${esc(recDue[0].id)}">${ICON.note}<span class="grow">${fmtD(recDue[0].date)} 「${esc(recDue[0].title || recDue[0].type)}」 공가 일정의 활동 기록을 남겨 주세요.${recDue.length > 1 ? ` (기록 전 ${recDue.length}건)` : ''}</span><b>기록 쓰기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
-    ${nx && st.tab !== 'cal' ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}${lvState(nx) ? ' (' + LV_LABEL[lvState(nx)] + ')' : ''}</span><b>${ddayText(nx.date)}</b></button>` : ''}
-    <div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>
-    ${st.tab === 'others' ? othersList(others) : st.tab === 'cal' ? calSection(myEvs, {}) : actList(myActs)}
+    ${nx ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}${lvState(nx) ? ' (' + LV_LABEL[lvState(nx)] + ')' : ''}</span><b>${ddayText(nx.date)}</b></button>` : ''}
+    ${tabs.length ? `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>` : ''}
+    ${st.tab === 'others' ? othersList(others) : calSection(myEvs, { acts: myActs })}
   </div>`;
 }
 
@@ -918,20 +921,23 @@ function calSection(list, o) {
   const sum = lv.length ? `<p class="lv-sum">공가 지원 요청 <b>${lv.length}건</b>: ${['승인', '대기', '보완요청'].map((k) => [k, lv.filter((e) => lvState(e) === k).length]).filter((x) => x[1]).map(([k, n]) => LV_LABEL[k] + ' ' + n).join(', ')}</p>` : '';
   return `<div class="calx"><div class="cal-bar"><div class="seg" role="group" aria-label="보기 방식">${[['cal', '달력'], ['list', '목록']].map(([k, l]) => `<button data-act="calView" data-v="${k}" aria-pressed="${c.view === k}">${l}</button>`).join('')}</div>
     <span class="grow"></span><button class="btn primary" data-act="newEv">${ICON.plus}일정 추가</button></div>${sum}
-    ${c.view === 'list' ? evList(list, o) : `<div class="cal-layout">${calCard(list, o)}<div>${dayPanel(list, o)}</div></div>`}</div>`;
+    ${c.view === 'list' ? evList(list, o) : `<div class="cal-layout">${calCard(list, o)}<div>${dayPanel(list, o)}</div></div>`}
+    ${o.acts ? `<div class="day-h"><h3>활동 기록 <span class="cnt">${o.acts.length}</span></h3></div>${actList(o.acts)}` : ''}</div>`;
 }
 function calCard(list, o) {
   const c = st.cal, lead = new Date(c.y, c.m, 1).getDay(), today = todayStr();
   const weeks = Math.ceil((lead + new Date(c.y, c.m + 1, 0).getDate()) / 7);
   const byDay = {};
   list.forEach((e) => { (byDay[e.date] = byDay[e.date] || []).push(e); });
+  (o.acts || []).filter((a) => !evOfAct(a)).forEach((a) => { (byDay[a.date] = byDay[a.date] || []).push({ rec: a, date: a.date, start: a.start, created: a.created }); });
   let cells = '';
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(c.y, c.m, 1 - lead + i), ds = ymd(d), es = (byDay[ds] || []).sort(byEvAsc), n = es.length;
     // 휴대폰은 칸에 두 줄(일정이 셋 이상이면 하나 + 「+나머지」), 넓은 화면(교육팀)은 네 줄. 칸 색 = 공가 상태
     const chips = es.map((e, j) => {
       const hide = [(n > 2 ? j >= 1 : j >= 2) ? 'hm' : '', (n > 4 ? j >= 3 : j >= 4) ? 'hw' : ''].join(' ');
-      const ty = EV_SHORT[e.type] || e.type;
+      if (e.rec) return `<i class="cv ev-rec ${hide}">${e.start ? `<span class="cv-x">${esc(e.start)} </span>` : ''}기록</i>`;
+      const ty = (actOfEv(e) ? '✓' : '') + (EV_SHORT[e.type] || e.type);
       // 전체 팀이면 팀 이름(넓은 화면은 + 유형), 한 팀이면 유형(넓은 화면은 시각 + 유형)
       const label = o.chipTeam ? esc(shortTeam(e.team)) + `<span class="cv-x"> ${esc(ty)}</span>` : (e.start ? `<span class="cv-x">${esc(e.start)} </span>` : '') + esc(ty);
       return `<i class="cv ${LV_CLS[lvState(e)]} ${hide}">${label}</i>`;
@@ -941,12 +947,13 @@ function calCard(list, o) {
   }
   return `<div class="cal${o.admin ? ' wide' : ''}"><div class="cal-head"><button class="icon-btn" data-act="calMove" data-n="-1" aria-label="이전 달">${ICON.back}</button><h3>${c.y}년 ${c.m + 1}월</h3><button class="icon-btn" data-act="calMove" data-n="1" aria-label="다음 달">${ICON.fwd}</button><span class="grow"></span><button class="cal-today" data-act="calToday">오늘</button></div>
     <div class="cal-wd" aria-hidden="true">${WD.map((w) => `<span>${w}</span>`).join('')}</div><div class="cal-grid">${cells}</div>
-    <div class="cal-legend">${[['승인', '공가 승인'], ['대기', '승인 대기'], ['보완요청', '보완 요청'], ['', '일반 일정']].map(([k, l]) => `<span class="cv ${LV_CLS[k]}">${l}</span>`).join('')}</div></div>`;
+    <div class="cal-legend">${[['승인', '공가 승인'], ['대기', '승인 대기'], ['보완요청', '보완 요청'], ['', '일반 일정']].map(([k, l]) => `<span class="cv ${LV_CLS[k]}">${l}</span>`).join('')}${o.acts ? '<span class="cv ev-rec">활동 기록</span>' : ''}</div></div>`;
 }
 function dayPanel(list, o) {
   const c = st.cal, es = list.filter((e) => e.date === c.sel).sort(byEvAsc), dd = ddayText(c.sel);
   return `<div class="day-h"><h3>${fmtDay(c.sel)}</h3>${dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : ''}</div>
-    <div class="list">${es.map((e) => evRow(e, o, true)).join('') || '<p class="empty-s">이 날은 일정이 없습니다.</p>'}<button class="row rc-add" data-act="newEv" data-date="${esc(c.sel)}">${ICON.plus}<span>이 날 일정 추가</span></button></div>`;
+    <div class="list">${es.map((e) => evRow(e, o, true)).join('')}${o.acts ? o.acts.filter((a) => a.date === c.sel).map((a) => actRow(a)).join('') : ''}${es.length || (o.acts && o.acts.some((a) => a.date === c.sel)) ? '' : `<p class="empty-s">이 날은 일정${o.acts ? '·기록' : ''}이 없습니다.</p>`}
+      <button class="row rc-add" data-act="newEv" data-date="${esc(c.sel)}">${ICON.plus}<span>이 날 일정 추가</span></button>${o.acts ? `<button class="row rc-add" data-act="newActOn" data-date="${esc(c.sel)}">${ICON.note}<span>이 날 활동 기록 쓰기</span></button>` : ''}</div>`;
 }
 // 일정 한 줄: 고른 날 목록에서는 왼쪽에 시각, 전체 목록에서는 날짜와 남은 날. 공가 요청이면 상태·대상 인원·기록 여부
 function evRow(e, o, inDay) {
@@ -1068,7 +1075,7 @@ async function saveEv() {
     calGo(r.event.date); // 저장한 날이 보이게
     await closeAll();
     if (d.role === 'admin') { st.atab = 'cal'; if (st.cal.team !== 'all' && st.cal.team !== r.event.team) st.cal.team = 'all'; } // 거른 팀과 다른 팀 일정이면 전체 팀으로
-    else st.tab = 'cal';
+    else st.tab = 'acts';
     render();
     toast(r.event.status === '대기' ? '저장했습니다. 교육팀 승인을 기다립니다' : f.isNew ? '일정을 저장했습니다' : '수정 내용을 저장했습니다');
   } catch (e) {
@@ -2192,6 +2199,7 @@ const ACT = {
     try { busy(true); const r = await api('review', { id: id, status: s, note: sendNote }); upsert(D().rcps, r.rcp); saveCache(); render(); rerenderSheets(); toast(s === '확인' ? '확인 완료로 바꿨습니다' : s === '보완요청' ? '보완 요청을 보냈습니다' : '확인 대기로 되돌렸습니다'); }
     catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
   },
+  newActOn: (el) => openActForm(null, { date: el.dataset.date }),
   newEv: (el) => openEvForm(null, { date: el.dataset.date || (st.cal.view === 'cal' && st.cal.sel) || '' }), // 달력에서 고른 날로
   openEv: (el) => openEv(el.dataset.id),
   editEv: async (el) => {
@@ -2239,7 +2247,7 @@ const ACT = {
     }
     saveDraftSoon();
   },
-  goEv: (el) => { st.tab = 'cal'; calGo(el.dataset.date); render(); openEv(el.dataset.id); },
+  goEv: (el) => { st.tab = 'acts'; calGo(el.dataset.date); render(); openEv(el.dataset.id); },
   calView: (el) => { st.cal.view = el.dataset.v; lsSet(LS.calView, st.cal.view); render(); },
   // 달을 넘기면 오늘(그 달이면), 아니면 그 달 첫 일정, 없으면 1일을 고른다
   calMove: (el) => {
