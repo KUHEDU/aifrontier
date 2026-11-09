@@ -116,6 +116,7 @@ button{cursor:pointer}
 @media (min-width:640px){
   .sheet-wrap{align-items:center}
   .sheet,.sheet-wrap.full .sheet{height:auto;max-height:90vh;border-radius:var(--r-sheet)}
+  .sheet-wrap.full .sheet{max-width:800px;height:94vh;height:94dvh;max-height:none}
 }
 .sh-head{flex:none;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 8px 10px 20px;background:#fff;border-bottom:1px solid var(--line2);border-radius:inherit}
 .sheet-wrap:not(.full) .sh-head{padding-top:12px}
@@ -449,7 +450,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-09.2';
+const APP_VERSION = '2026-11-09.3';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -609,8 +610,8 @@ const sheets = [];
 function openSheet(html, opts) {
   opts = opts || {};
   const w = document.createElement('div');
-  w.className = 'sheet-wrap' + (opts.full ? ' full' : '');
-  w.innerHTML = `<div class="sheet-bg" data-act="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(opts.label || '')}">${html}</div>`;
+  w.className = 'sheet-wrap' + (opts.full ? ' full' : ''); // full = 입력 양식: 바깥을 눌러도 닫히지 않고 X로만 닫음(쓰던 내용 보호)
+  w.innerHTML = `<div class="sheet-bg"${opts.full ? '' : ' data-act="closeSheet"'}></div><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(opts.label || '')}">${html}</div>`;
   $('#sheets').appendChild(w);
   sheets.push({ el: w, onClose: opts.onClose, rerender: opts.rerender });
   history.pushState({ sheet: sheets.length }, '');
@@ -2330,7 +2331,7 @@ document.addEventListener('change', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.id === 'att-new') { e.preventDefault(); ACT.addAtt(); }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('label[data-pick]')) { e.preventDefault(); e.target.click(); }
-  if (e.key === 'Escape') { if ($('#viewer')) ACT.closeViewer(); else if ($('#print')) ACT.closePrint(); else closeSheet(); }
+  if (e.key === 'Escape') { if ($('#viewer')) ACT.closeViewer(); else if ($('#print')) ACT.closePrint(); else if (sheets.length && !sheets[sheets.length - 1].el.classList.contains('full')) closeSheet(); } // 양식 창은 Esc로도 안 닫음
 });
 $('#pick-cam').addEventListener('change', onPicked);
 $('#pick-file').addEventListener('change', onPicked);
