@@ -279,6 +279,7 @@ select.in option{color:var(--ink)}
 .ev-row .row-date b{font-size:15px}
 .empty-s{margin:0;padding:16px;color:var(--mute);font-size:15px}
 .pill.dday{background:#E3EEFF;color:var(--blue)}
+.pill.rec-need{background:#FDECEC;color:#C62828}
 .pill.dday.now{background:var(--blue);color:#fff}
 .past-btn{margin-top:12px}
 .notice svg{flex:none}
@@ -448,7 +449,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-09.1';
+const APP_VERSION = '2026-11-09.2';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -828,7 +829,7 @@ function renderTeam() {
   const tabs = others.length ? [['acts', '우리 팀', myActs.length], ['others', '다른 팀', others.length]] : [];
   if (!tabs.some((x) => x[0] === st.tab)) st.tab = 'acts';
   const nx = upEvs[0], evFix = myEvs.filter((e) => lvState(e) === '보완요청');
-  const recDue = myEvs.filter((e) => e.leave && dayDiff(e.date) <= 0 && dayDiff(e.date) >= -30 && !actOfEv(e)).sort((x, y) => byEvAsc(y, x)); // 활동 기록을 기다리는 공가 일정
+  const recDue = myEvs.filter((e) => dayDiff(e.date) <= 0 && !actOfEv(e)).sort((x, y) => byEvAsc(y, x)); // 활동 기록을 기다리는 일정(활동 기록은 일정에서만 남김)
   app().innerHTML = `
   <header class="band"><div class="wrap">
     <div class="band-top"><span class="course">${esc(set.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="teamMenu" aria-label="팀 메뉴">${ICON.more}</button></div>
@@ -840,10 +841,10 @@ function renderTeam() {
       <div class="budget-sub">사용 ${won(s.spent)} / 예산 ${won(s.budget)}</div></div>
   </div></header>
   <div class="wrap">
-    <div class="actions"><button class="big primary" data-act="newAct">${ICON.note}<span class="big-l">활동 기록하기<small>쓴 활동지원비 영수증도 같이 붙입니다</small></span></button></div>
+    <div class="actions"><button class="big primary" data-act="newEv">${ICON.plus}<span class="big-l">일정 추가<small>일정을 마치면 그 일정에서 활동 기록·영수증을 남깁니다</small></span></button></div>
     ${fixes.length ? `<button class="notice" data-act="openAct" data-id="${esc(fixes[0].actId)}" data-focus="rcps"><span class="grow">교육팀이 영수증 ${fixes.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${evFix.length ? `<button class="notice" data-act="goEv" data-id="${esc(evFix[0].id)}" data-date="${esc(evFix[0].date)}"><span class="grow">교육팀이 공가 일정 ${evFix.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
-    ${recDue.length ? `<button class="notice info" data-act="actFromEv" data-id="${esc(recDue[0].id)}">${ICON.note}<span class="grow">${fmtD(recDue[0].date)} 「${esc(recDue[0].title || recDue[0].type)}」 공가 일정의 활동 기록을 남겨 주세요.${recDue.length > 1 ? ` (기록 전 ${recDue.length}건)` : ''}</span><b>기록 쓰기</b></button>` : ''}
+    ${recDue.length ? `<button class="notice info" data-act="actFromEv" data-id="${esc(recDue[0].id)}">${ICON.note}<span class="grow">${fmtD(recDue[0].date)} 「${esc(recDue[0].title || recDue[0].type)}」 ${recDue[0].leave ? '공가 ' : ''}일정의 활동 기록을 남겨 주세요.${recDue.length > 1 ? ` (기록 전 ${recDue.length}건)` : ''}</span><b>기록 쓰기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
     ${nx ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}${lvState(nx) ? ' (' + LV_LABEL[lvState(nx)] + ')' : ''}</span><b>${ddayText(nx.date)}</b></button>` : ''}
     ${tabs.length ? `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>` : ''}
@@ -863,7 +864,7 @@ function actRow(a, showTeam) {
     ${rcs.length ? `<div class="row-end"><b class="amt">${won(sum(rcs.map((r) => r.amount)))}</b><span class="pill p-${esc(rs)}">${STATUS_LABEL[rs]}</span></div>` : ''}</button>`;
 }
 function actList(acts) {
-  if (!acts.length) return `<div class="list"><div class="empty"><p>아직 활동 기록이 없습니다.<br>스터디나 회의가 끝나면 바로 남겨 주세요.<br>활동지원비를 썼다면 영수증도 그 기록에 붙입니다.</p><button class="btn primary" data-act="newAct">첫 활동 기록하기</button></div></div>`;
+  if (!acts.length) return `<div class="list"><div class="empty"><p>아직 활동 기록이 없습니다.<br>일정을 마치면 달력에서 그 일정을 눌러<br>「이 일정의 활동 기록 남기기」로 남겨 주세요.<br>활동지원비를 썼다면 영수증도 그 기록에 붙입니다.</p></div></div>`;
   return `<div class="list">${acts.map((a) => actRow(a)).join('')}</div>`;
 }
 function othersList(acts) {
@@ -914,13 +915,14 @@ function evsToRecord(team, a) {
   const t = todayStr(), d = dateOf(t), from = ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 30));
   return evs().filter((e) => e.team === team && e.date <= t && e.date >= from && (!actOfEv(e) || (a && actOfEv(e).id === a.id))).sort((x, y) => byEvAsc(y, x)).slice(0, 8);
 }
+const evPre = (e) => ({ type: e.type, date: e.date, start: e.start, end: e.end, place: e.place, topic: e.title, evId: e.id }); // 일정으로 미리 채운 새 활동 기록
 function evLabel(e) { return `${fmtD(e.date)} ${esc(e.title || e.type)}${lvState(e) ? ' (' + LV_LABEL[lvState(e)] + ')' : ''}`; }
 // 위: 보기 방식·추가 버튼(팀은 공가 요청 요약), 아래: 달력과 고른 날의 일정, 또는 목록. o.admin = 팀 표시, o.chipTeam = 달력 칸에 팀 이름
 function calSection(list, o) {
   const c = calState(), lv = o.admin ? [] : list.filter((e) => e.leave);
   const sum = lv.length ? `<p class="lv-sum">공가 지원 요청 <b>${lv.length}건</b>: ${['승인', '대기', '보완요청'].map((k) => [k, lv.filter((e) => lvState(e) === k).length]).filter((x) => x[1]).map(([k, n]) => LV_LABEL[k] + ' ' + n).join(', ')}</p>` : '';
   return `<div class="calx"><div class="cal-bar"><div class="seg" role="group" aria-label="보기 방식">${[['cal', '달력'], ['list', '목록']].map(([k, l]) => `<button data-act="calView" data-v="${k}" aria-pressed="${c.view === k}">${l}</button>`).join('')}</div>
-    <span class="grow"></span><button class="btn primary" data-act="newEv">${ICON.plus}일정 추가</button></div>${sum}
+    <span class="grow"></span>${o.acts ? '' : `<button class="btn primary" data-act="newEv">${ICON.plus}일정 추가</button>`}</div>${sum}
     ${c.view === 'list' ? evList(list, o) : `<div class="cal-layout">${calCard(list, o)}<div>${dayPanel(list, o)}</div></div>`}
     ${o.acts ? `<div class="day-h"><h3>활동 기록 <span class="cnt">${o.acts.length}</span></h3></div>${actList(o.acts)}` : ''}</div>`;
 }
@@ -947,22 +949,22 @@ function calCard(list, o) {
   }
   return `<div class="cal${o.admin ? ' wide' : ''}"><div class="cal-head"><button class="icon-btn" data-act="calMove" data-n="-1" aria-label="이전 달">${ICON.back}</button><h3>${c.y}년 ${c.m + 1}월</h3><button class="icon-btn" data-act="calMove" data-n="1" aria-label="다음 달">${ICON.fwd}</button><span class="grow"></span><button class="cal-today" data-act="calToday">오늘</button></div>
     <div class="cal-wd" aria-hidden="true">${WD.map((w) => `<span>${w}</span>`).join('')}</div><div class="cal-grid">${cells}</div>
-    <div class="cal-legend">${[['승인', '공가 승인'], ['대기', '승인 대기'], ['보완요청', '보완 요청'], ['', '일반 일정']].map(([k, l]) => `<span class="cv ${LV_CLS[k]}">${l}</span>`).join('')}${o.acts ? '<span class="cv ev-rec">활동 기록</span>' : ''}</div></div>`;
+    <div class="cal-legend">${[['승인', '공가 승인'], ['대기', '승인 대기'], ['보완요청', '보완 요청'], ['', '일반 일정']].map(([k, l]) => `<span class="cv ${LV_CLS[k]}">${l}</span>`).join('')}${o.acts && o.acts.some((a) => !evOfAct(a)) ? '<span class="cv ev-rec">활동 기록</span>' : ''}</div></div>`;
 }
 function dayPanel(list, o) {
   const c = st.cal, es = list.filter((e) => e.date === c.sel).sort(byEvAsc), dd = ddayText(c.sel);
   return `<div class="day-h"><h3>${fmtDay(c.sel)}</h3>${dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : ''}</div>
     <div class="list">${es.map((e) => evRow(e, o, true)).join('')}${o.acts ? o.acts.filter((a) => a.date === c.sel).map((a) => actRow(a)).join('') : ''}${es.length || (o.acts && o.acts.some((a) => a.date === c.sel)) ? '' : `<p class="empty-s">이 날은 일정${o.acts ? '·기록' : ''}이 없습니다.</p>`}
-      <button class="row rc-add" data-act="newEv" data-date="${esc(c.sel)}">${ICON.plus}<span>이 날 일정 추가</span></button>${o.acts ? `<button class="row rc-add" data-act="newActOn" data-date="${esc(c.sel)}">${ICON.note}<span>이 날 활동 기록 쓰기</span></button>` : ''}</div>`;
+      <button class="row rc-add" data-act="newEv" data-date="${esc(c.sel)}">${ICON.plus}<span>이 날 일정 추가</span></button></div>`;
 }
 // 일정 한 줄: 고른 날 목록에서는 왼쪽에 시각, 전체 목록에서는 날짜와 남은 날. 공가 요청이면 상태·대상 인원·기록 여부
 function evRow(e, o, inDay) {
   const d = dateOf(e.date), dd = inDay ? '' : ddayText(e.date), lv = lvState(e);
   const left = inDay ? `<div class="row-date">${e.start ? `<b>${esc(e.start)}</b><span>${e.end ? '~' + esc(e.end) : ''}</span>` : '<span>시간 미정</span>'}</div>`
     : `<div class="row-date"><b>${d ? (d.getMonth() + 1) + '.' + d.getDate() : ''}</b><span>${d ? WD[d.getDay()] : ''}</span></div>`;
-  const rec = dayDiff(e.date) <= 0 ? (actOfEv(e) ? '기록 완료' : '기록 전') : '';
-  const meta = [inDay ? '' : evTime(e), e.place, lv ? '대상 ' + (e.people || []).length + '명' : '', rec].filter(Boolean).join(', ');
-  const end = (lv ? `<span class="pill lv-${esc(lv)}">${LV_LABEL[lv]}</span>` : '') + (dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : '');
+  const gone = dayDiff(e.date) <= 0, done = gone && !!actOfEv(e);
+  const meta = [inDay ? '' : evTime(e), e.place, lv ? '대상 ' + (e.people || []).length + '명' : '', done ? '기록 완료' : ''].filter(Boolean).join(', ');
+  const end = (lv ? `<span class="pill lv-${esc(lv)}">${LV_LABEL[lv]}</span>` : '') + (gone && !done ? '<span class="pill rec-need">기록 필요</span>' : '') + (dd ? `<span class="pill dday${dd === '오늘' ? ' now' : ''}">${dd}</span>` : '');
   return `<button class="row ev-row" data-act="openEv" data-id="${esc(e.id)}">${left}
     <div class="row-main"><div class="row-title">${o.admin ? `<span class="tag team">${esc(shortTeam(e.team))}</span>` : ''}<span class="tag ${e.type === '자율스터디' ? 'study' : ''}">${esc(e.type)}</span>${esc(e.title)}</div>${meta ? `<div class="row-meta">${esc(meta)}</div>` : ''}</div>
     ${end ? `<div class="row-end">${end}</div>` : ''}</button>`;
@@ -1078,6 +1080,7 @@ async function saveEv() {
     else st.tab = 'acts';
     render();
     toast(r.event.status === '대기' ? '저장했습니다. 교육팀 승인을 기다립니다' : f.isNew ? '일정을 저장했습니다' : '수정 내용을 저장했습니다');
+    if (d.role === 'team' && f.isNew && dayDiff(r.event.date) <= 0) openEv(r.event.id);
   } catch (e) {
     setSaving(false);
     if (e instanceof AppErr && e.code === 'auth') { logout(e.message); return; }
@@ -1231,9 +1234,9 @@ function rcpDraft(r) {
 }
 function openActForm(a, pre) {
   const isNew = !a;
-  const draft = isNew && !pre ? lsGet(LS.dAct, null) : null; // pre = 일정에서 미리 채운 값
-  const fromDraft = !!(draft && draft.team === (D().team || {}).id);
-  const base = a || pre || (fromDraft ? draft : null) || {};
+  const draft = isNew ? lsGet(LS.dAct, null) : null; // pre = 일정에서 미리 채운 값
+  const fromDraft = !!(draft && draft.team === (D().team || {}).id && draft.evId && pre && draft.evId === pre.evId);
+  const base = a || (fromDraft ? draft : null) || pre || {};
   const me = lsGet(LS.me, '');
   st.form = {
     kind: 'act', id: a ? a.id : (base.id || rid('a')), isNew: isNew, team: a ? a.team : (D().team || {}).id,
@@ -1247,12 +1250,15 @@ function openActForm(a, pre) {
   const f = st.form;
   const linked = a ? evs().find((e) => e.team === a.team && e.actId === a.id) : null;
   f.evId = a ? ((linked || evOfAct(a) || {}).id || '') : (base.evId || '');
-  const cands = linked ? [] : evsToRecord(f.team, a);
+  const fixed = linked || (isNew && f.evId ? evs().find((e) => e.id === f.evId) : null); // 새 기록은 연 일정에 묶임
+  const cands = fixed ? [] : evsToRecord(f.team, a);
   const picked = f.evId && !cands.some((e) => e.id === f.evId) ? evs().find((e) => e.id === f.evId) : null;
   if (picked) cands.unshift(picked);
-  const pick = linked ? `<div class="field"><span class="lbl">일정</span><p class="ev-linked">${ICON.cal}<span>${evLabel(linked)}</span></p></div>`
-    : cands.length ? `<div class="field"><span class="lbl">어느 일정의 기록인가요?</span><div class="chips" id="ev-pick">${cands.map((e) => `<button type="button" class="chip" data-act="pickEv" data-id="${esc(e.id)}" aria-pressed="${f.evId === e.id}">${evLabel(e)}</button>`).join('')}<button type="button" class="chip" data-act="pickEv" data-id="" aria-pressed="${!f.evId}">일정 없이 기록</button></div>
-      <p class="hint">일정을 고르면 날짜·시간·장소·주제가 채워지고, 그 일정의 공가 증빙에 이 기록이 들어갑니다.</p></div>` : '';
+  // 일정 없이 남긴 예전 기록을 고칠 때만 「일정 없이 기록」을 남겨 둔다
+  const pick = fixed ? `<div class="field"><span class="lbl">일정</span><p class="ev-linked">${ICON.cal}<span>${evLabel(fixed)}</span></p></div>`
+    : cands.length ? `<div class="field"><span class="lbl">어느 일정의 기록인가요?${isNew ? '<span class="req">*</span>' : ''}</span><div class="chips" id="ev-pick">${cands.map((e) => `<button type="button" class="chip" data-act="pickEv" data-id="${esc(e.id)}" aria-pressed="${f.evId === e.id}">${evLabel(e)}</button>`).join('')}${isNew ? '' : `<button type="button" class="chip" data-act="pickEv" data-id="" aria-pressed="${!f.evId}">일정 없이 기록</button>`}</div>
+      <p class="hint">일정을 고르면 날짜·시간·장소·주제가 채워지고, 그 일정의 공가 증빙에 이 기록이 들어갑니다.</p></div>`
+    : isNew ? '<div class="field"><p class="hint" style="margin:0">활동 기록은 일정에서 남깁니다. 먼저 일정을 추가해 주세요.</p></div>' : '';
   const restored = fromDraft && isNew && (draft.topic || (draft.rcps && draft.rcps.length));
   const places = [...new Set(D().acts.map((x) => x.place).filter(Boolean))].slice(0, 12);
   f.el = openSheet(`${sheetHead(isNew ? '활동 기록' : '활동 기록 수정')}
@@ -1329,6 +1335,7 @@ const rcpChanged = (r) => r.isNew || r.dirty || r.files.some((x) => x.isNew) || 
 async function saveAct() {
   const f = st.form;
   if (!f || f.kind !== 'act') return;
+  if (f.isNew && !(f.evId && evs().some((e) => e.id === f.evId))) { formErr('어느 일정의 기록인지 골라 주세요. 활동 기록은 일정에서 남깁니다.'); return; }
   if (!f.date) { formErr('날짜를 넣어 주세요.'); return; }
   if (!f.topic.trim()) { formErr('주제를 한 줄로 적어 주세요.'); fq('#a-topic').focus(); return; }
   formErr('');
@@ -1635,7 +1642,7 @@ function notifyPanel(n) {
 }
 function guideText(t) {
   const set = D().settings;
-  return `[${set.courseName || 'AI프론티어'}] ${t.name} 활동 기록 링크\n${teamLink(t)}\n\n- 링크를 누르면 바로 ${t.name} 화면이 열립니다.\n- 스터디·회의가 끝나면 [활동 기록하기]로 남겨 주세요. 활동지원비를 썼다면 그 기록 안에서 영수증 사진을 붙이면 됩니다.\n- 링크 없이 열리면 팀을 고르고 팀 코드 ${t.code} 를 넣으면 됩니다.\n- 이 링크와 코드는 우리 팀 안에서만 공유해 주세요.`;
+  return `[${set.courseName || 'AI프론티어'}] ${t.name} 활동 기록 링크\n${teamLink(t)}\n\n- 링크를 누르면 바로 ${t.name} 화면이 열립니다.\n- 스터디·회의 날짜가 정해지면 [일정 추가]로 올려 주세요. 일정을 마치면 달력에서 그 일정을 눌러 [이 일정의 활동 기록 남기기]로 기록합니다. 활동지원비를 썼다면 그 기록 안에서 영수증 사진을 붙이면 됩니다.\n- 링크 없이 열리면 팀을 고르고 팀 코드 ${t.code} 를 넣으면 됩니다.\n- 이 링크와 코드는 우리 팀 안에서만 공유해 주세요.`;
 }
 function adminMenu() {
   openSheet(`${sheetHead('관리자 메뉴')}<div class="sh-body"><div class="btn-row" style="flex-direction:column">
@@ -2080,7 +2087,6 @@ const ACT = {
   tab: (el) => { st.tab = el.dataset.tab; renderTeam(); },
   atab: (el) => { st.atab = el.dataset.tab; renderAdmin(); window.scrollTo(0, 0); },
   af: (el) => { st.af[el.dataset.k] = el.dataset.v; renderAdmin(); },
-  newAct: () => openActForm(null),
   openAct: (el) => openAct(el.dataset.id, el.dataset.focus === 'rcps'),
   editAct: (el) => openActForm(D().acts.find((x) => x.id === el.dataset.id)),
   // 보완 요청 받은 영수증: 활동 양식을 열고 그 영수증 양식까지 바로 띄운다
@@ -2130,7 +2136,7 @@ const ACT = {
     if (p && !p.isNew) f.remove.push(p.id);
     drawPhotos();
   },
-  clearDraft: async () => { lsSet(LS.dAct, null); await closeSheet(); openActForm(null); },
+  clearDraft: async () => { const e = evs().find((x) => x.id === (st.form || {}).evId); lsSet(LS.dAct, null); await closeSheet(); if (e) openActForm(null, evPre(e)); },
   saveAct: () => saveAct(),
   view: (el) => viewPhoto(el.dataset.id),
   closeViewer: () => { if (history.state && history.state.viewer) history.back(); else { const v = $('#viewer'); if (v) v.remove(); } },
@@ -2199,7 +2205,6 @@ const ACT = {
     try { busy(true); const r = await api('review', { id: id, status: s, note: sendNote }); upsert(D().rcps, r.rcp); saveCache(); render(); rerenderSheets(); toast(s === '확인' ? '확인 완료로 바꿨습니다' : s === '보완요청' ? '보완 요청을 보냈습니다' : '확인 대기로 되돌렸습니다'); }
     catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
   },
-  newActOn: (el) => openActForm(null, { date: el.dataset.date }),
   newEv: (el) => openEvForm(null, { date: el.dataset.date || (st.cal.view === 'cal' && st.cal.sel) || '' }), // 달력에서 고른 날로
   openEv: (el) => openEv(el.dataset.id),
   editEv: async (el) => {
@@ -2225,7 +2230,7 @@ const ACT = {
     const e = evs().find((x) => x.id === el.dataset.id);
     if (!e) return;
     await closeAll();
-    openActForm(null, { type: e.type, date: e.date, start: e.start, end: e.end, place: e.place, topic: e.title, evId: e.id });
+    openActForm(null, evPre(e));
   },
   // 활동 양식: 어느 일정의 기록인지 고르면 유형·날짜·시각을 맞추고 장소·주제는 비어 있으면 채운다
   pickEv: (el) => {
