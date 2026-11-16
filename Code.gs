@@ -17,7 +17,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-16.1';
+var VERSION = '2026-11-16.2';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -65,7 +65,7 @@ var TABS = {
     ['reviewed', '승인시각', 's'], ['actId', '활동기록', 't']] }, // 11-06에 붙인 열은 끝에 둔다(ensureCols_)
   file: { name: '파일', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['owner', '대상', 't'], ['driveId', '드라이브ID', 't'],
     ['name', '파일명', 't'], ['mime', '형식', 't'], ['size', '크기', 'n'], ['created', '작성시각', 's'], ['deleted', '삭제', 't'],
-    ['thumb', '썸네일', 't']] },
+    ['thumb', '썸네일', 't'], ['writer', '올린사람', 't']] }, // 올린사람 = 11-16 팀 파일함에서 붙인 열(끝에 둔다)
   log: { name: '변경이력', cols: [['at', '시각', 's'], ['who', '누가', 't'], ['action', '작업', 't'], ['target', '대상', 't'],
     ['summary', '내용', 't']] }
 };
@@ -85,7 +85,7 @@ var ROUTES = {
   saveAct: saveAct_, deleteAct: deleteAct_,
   saveRcp: saveRcp_, deleteRcp: deleteRcp_,
   saveEvent: saveEvent_, deleteEvent: deleteEvent_, reviewEvent: reviewEvent_,
-  getFile: getFile_, saveMembers: saveMembers_,
+  getFile: getFile_, saveMembers: saveMembers_, addTeamFile: addTeamFile_, deleteTeamFile: deleteTeamFile_,
   review: review_, saveTeams: saveTeams_, saveSettings: saveSettings_
 };
 
@@ -733,6 +733,51 @@ function colOf_(tab, key) {
 /* ───────── 파일(드라이브) ───────── */
 
 // 시트에 쓰기 전에 파일을 모두 검사한다(중간에 거절돼 일부만 저장되는 일이 없게).
+// 팀 파일함: 활동 기록과 따로 팀이 올려 두는 자료. 한 번에 한 파일, 같은 id로 다시 오면(재시도) 이미 저장된 것을 돌려준다
+var TEAM_EXT = /\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|jpg|jpeg|png|gif|webp|heic)$/i;
+function cleanName_(s) { return String(s || '').replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(-120); }
+function addTeamFile_(req) {
+  var who = auth_(req);
+  return withLock_(function () {
+    var tid = who.admin ? str_(req.team, 10) : who.team.id;
+    if (!teamById_(tid)) throw appErr_('bad', '팀을 찾을 수 없습니다.');
+    var nf = req.file || {};
+    var fid = cleanId_(nf.id, 'f');
+    var ex = find_(readAll_('file'), fid);
+    if (ex) {
+      if (ex.team !== tid || ex.owner !== 'T:' + tid) throw appErr_('forbidden', '다른 파일입니다.');
+      return { file: pubFile_(ex) };
+    }
+    var name = cleanName_(nf.name);
+    if (!TEAM_EXT.test(name)) throw appErr_('bad_file', '한글·워드·엑셀·파워포인트·PDF·텍스트·CSV·ZIP·사진 파일만 올릴 수 있습니다.');
+    var mime = String(nf.mime || '');
+    if (!/^[\w.+-]+\/[\w.+-]+$/.test(mime) || mime.length > 120) mime = 'application/octet-stream';
+    var data = String(nf.data || '');
+    if (!data || data.length > MAX_FILE_B64) throw appErr_('too_big', '파일이 너무 큽니다(9MB 이하).');
+    ensureCols_('file');
+    var bytes = Utilities.base64Decode(data);
+    var file = folder_(tid).createFile(Utilities.newBlob(bytes, mime, '팀파일_' + fid.slice(-4) + '_' + name));
+    var obj = { id: fid, team: tid, owner: 'T:' + tid, driveId: file.getId(), name: name, mime: mime, size: bytes.length,
+      created: now_(), deleted: '', thumb: '', writer: str_(req.writer, 30) };
+    writeRow_('file', obj, 0);
+    log_(who, '파일 올림', fid, name);
+    return { file: pubFile_(obj) };
+  });
+}
+function deleteTeamFile_(req) {
+  var who = auth_(req);
+  return withLock_(function () {
+    var f = find_(readAll_('file'), String(req.id || ''));
+    if (!f || f.deleted === 'Y') return { deleted: true };
+    if (f.owner.indexOf('T:') !== 0) throw appErr_('bad', '팀 파일이 아닙니다.');
+    if (!who.admin && f.team !== who.team.id) throw appErr_('forbidden', '다른 팀의 파일입니다.');
+    writeRow_('file', { deleted: 'Y' }, f._row);
+    try { DriveApp.getFileById(f.driveId).setTrashed(true); } catch (e) { /* 이미 지워진 파일 */ }
+    log_(who, '파일 삭제', f.id, f.name);
+    return { deleted: true };
+  });
+}
+
 function checkFiles_(owner, newFiles, removeIds) {
   newFiles = Array.isArray(newFiles) ? newFiles : [];
   removeIds = (Array.isArray(removeIds) ? removeIds : []).map(String);
@@ -1048,7 +1093,7 @@ function pubEv_(e) {
 
 function pubFile_(f) {
   return { id: f.id, team: f.team, owner: f.owner, name: f.name, mime: f.mime, size: Number(f.size) || 0,
-    thumb: f.thumb, created: f.created };
+    thumb: f.thumb, created: f.created, writer: f.writer || '' };
 }
 
 /* ───────── 작은 도구 ───────── */

@@ -62,6 +62,8 @@ button{cursor:pointer}
 
 /* 큰 버튼 — 띠 아래 걸침 */
 .actions{display:grid;grid-template-columns:1fr;gap:10px;padding:0 16px;margin-top:-30px;position:relative;z-index:2}
+.actions.two{grid-template-columns:1fr auto}
+.actions.two label.big{cursor:pointer;padding:8px 18px}
 .big{display:flex;align-items:center;justify-content:center;gap:10px;min-height:62px;padding:8px 16px;border-radius:var(--r-btn);border:1px solid var(--line);background:#fff;color:var(--blue);font-size:17px;font-weight:680;box-shadow:0 6px 18px rgba(12,43,63,.12)}
 .big .big-l{display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;text-align:left}
 .big .big-l small{font-size:13px;font-weight:550;opacity:.8}
@@ -176,6 +178,14 @@ select.in option{color:var(--ink)}
 .doc-dl{flex:none;color:var(--blue);font-size:14px}
 .doc-list .doc-row{border:0;border-radius:0;margin:0;border-bottom:1px solid var(--line2)}
 .doc-add{width:100%;justify-content:center}
+.tf-row{display:flex;align-items:center;border-bottom:1px solid var(--line2)}
+.tf-row:last-child{border-bottom:0}
+.tf-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:12px 4px 12px 16px;background:none;border:0;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.tf-main svg{flex:none;width:22px;height:22px;color:var(--blue)}
+.tf-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tf-meta{font-size:13px;color:var(--mute)}
+.tf-x{flex:none;width:36px;height:36px;margin-right:10px;border-radius:50%;border:0;background:#EEF2F6;color:var(--slate);font-size:18px;cursor:pointer}
+.adm-tf{margin-top:22px}
 .ph-add{aspect-ratio:1;border-radius:var(--r-thumb);border:1.5px dashed #AFC0D2;background:#fff;color:var(--blue);font-size:13px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .cam-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .cam-row .btn{height:56px}
@@ -457,9 +467,10 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-cam" accept="image/*" capture="environment" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="pick-doc" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" multiple class="sr" tabindex="-1" aria-hidden="true">
+<input type="file" id="pick-tfile" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,image/*" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-16.1';
+const APP_VERSION = '2026-11-16.2';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -855,14 +866,14 @@ function renderTeam() {
       <div class="budget-sub">사용 ${won(s.spent)} / 예산 ${won(s.budget)}</div></div>
   </div></header>
   <div class="wrap">
-    <div class="actions"><button class="big primary" data-act="newEv">${ICON.plus}<span class="big-l">일정 추가<small>일정을 마치면 그 일정에서 활동 기록·영수증을 남깁니다</small></span></button></div>
+    <div class="actions two"><button class="big primary" data-act="newEv">${ICON.plus}<span class="big-l">일정 추가<small>마치면 그 일정에서 활동 기록</small></span></button><label class="big" for="pick-tfile" data-tpick role="button" tabindex="0">${ICON.doc}<span>파일 추가</span></label></div>
     ${fixes.length ? `<button class="notice" data-act="openAct" data-id="${esc(fixes[0].actId)}" data-focus="rcps"><span class="grow">교육팀이 영수증 ${fixes.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${evFix.length ? `<button class="notice" data-act="goEv" data-id="${esc(evFix[0].id)}" data-date="${esc(evFix[0].date)}"><span class="grow">교육팀이 공가 일정 ${evFix.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${recDue.length ? `<button class="notice info" data-act="actFromEv" data-id="${esc(recDue[0].id)}">${ICON.note}<span class="grow">${fmtD(recDue[0].date)} 「${esc(recDue[0].title || recDue[0].type)}」 ${recDue[0].leave ? '공가 ' : ''}일정의 활동 기록을 남겨 주세요.${recDue.length > 1 ? ` (기록 전 ${recDue.length}건)` : ''}</span><b>기록 쓰기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
     ${nx ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}${lvState(nx) ? ' (' + LV_LABEL[lvState(nx)] + ')' : ''}</span><b>${ddayText(nx.date)}</b></button>` : ''}
     ${tabs.length ? `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>` : ''}
-    ${st.tab === 'others' ? othersList(others) : calSection(myEvs, { acts: myActs })}
+    ${st.tab === 'others' ? othersList(others) : calSection(myEvs, { acts: myActs, tfiles: tFiles(t.id) })}
   </div>`;
 }
 
@@ -938,6 +949,7 @@ function calSection(list, o) {
   return `<div class="calx"><div class="cal-bar"><div class="seg" role="group" aria-label="보기 방식">${[['cal', '달력'], ['list', '목록']].map(([k, l]) => `<button data-act="calView" data-v="${k}" aria-pressed="${c.view === k}">${l}</button>`).join('')}</div>
     <span class="grow"></span>${o.acts ? '' : `<button class="btn primary" data-act="newEv">${ICON.plus}일정 추가</button>`}</div>${sum}
     ${c.view === 'list' ? evList(list, o) : `<div class="cal-layout">${calCard(list, o)}<div>${dayPanel(list, o)}</div></div>`}
+    ${o.tfiles ? teamFilesHtml(o.tfiles, false) : ''}
     ${o.acts ? `<div class="day-h"><h3>활동 기록 <span class="cnt">${o.acts.length}</span></h3></div>${actList(o.acts)}` : ''}</div>`;
 }
 function calCard(list, o) {
@@ -1311,7 +1323,6 @@ function openActForm(a, pre) {
     <div class="field"><label for="a-content">논의한 내용</label><textarea id="a-content" class="in" data-f="content" placeholder="무엇을 논의했고 무엇을 정했는지 적어 주세요.">${esc(f.content)}</textarea></div>
     <div class="field"><label for="a-next">다음에 할 일</label><textarea id="a-next" class="in" data-f="next" style="min-height:80px" placeholder="담당자와 기한이 있으면 같이 적어 주세요.">${esc(f.next)}</textarea></div>
     <div class="field"><span class="lbl">사진 <span id="photo-count" class="num" style="color:var(--mute);font-weight:500"></span></span><div class="photos" id="photos"></div><p class="hint">화이트보드, 회의 장면 등. 한 건에 4장까지.</p></div>
-    <div class="field"><span class="lbl">첨부 파일 <span id="doc-count" class="num" style="color:var(--mute);font-weight:500"></span></span><div id="docs"></div><p class="hint">발표 자료, 회의록, 결과물 등. 한글·워드·엑셀·파워포인트·PDF·텍스트·CSV·ZIP, 한 건에 4개, 파일당 9MB까지.</p></div>
     <div class="field"><span class="lbl">영수증 <span id="rcp-sum" class="num" style="color:var(--mute);font-weight:500"></span></span><div id="rcp-list"></div>
       <p class="hint">활동지원비를 썼다면 영수증을 여기에 붙여 주세요. 영수증이 여러 장이면 한 장씩 붙입니다.</p></div>
     <div class="field"><label for="a-writer">작성자</label><input id="a-writer" class="in" data-f="writer" list="writer-list" value="${esc(f.writer)}" placeholder="이름"><datalist id="writer-list">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
@@ -1491,6 +1502,35 @@ async function dropSubRcp() {
 }
 
 /* ───── 상세 보기 ───── */
+// 팀 파일함: 최신순, 파일명·올린 날·올린 사람·크기. 줄을 누르면 받기, ×는 지우기
+const tFiles = (team) => D().files.filter((f) => f.owner.indexOf('T:') === 0 && (team === 'all' || f.team === team)).sort((a, b) => String(b.created).localeCompare(String(a.created)));
+function teamFilesHtml(list, showTeam) {
+  const rows = list.map((x) => `<div class="tf-row"><button class="tf-main" data-act="dlFile" data-id="${esc(x.id)}">${ICON.doc}<span class="tf-txt"><span class="doc-n">${showTeam ? `<span class="tag team">${esc(shortTeam(x.team))}</span>` : ''}${esc(x.name || '파일')}</span><span class="tf-meta">${esc([String(x.created || '').slice(0, 10) ? fmtD(String(x.created).slice(0, 10)) : '', x.writer, x.size ? fmtSize(x.size) : ''].filter(Boolean).join(', '))}</span></span><b class="doc-dl">받기</b></button><button class="tf-x" data-act="delTFile" data-id="${esc(x.id)}" aria-label="${esc(x.name || '파일')} 지우기">×</button></div>`).join('');
+  return `<div class="day-h"><h3>${showTeam ? '팀 파일' : '파일'} <span class="cnt">${list.length}</span></h3></div><div class="list tf-list">${rows || `<div class="empty"><p>아직 올린 파일이 없습니다.${showTeam ? '' : '<br>위의 [파일 추가]로 회의록·발표 자료 등을 올려 두세요.'}</p></div>`}</div>`;
+}
+async function onTeamPicked(e) {
+  const list = Array.from(e.target.files || []);
+  e.target.value = '';
+  const d = D();
+  if (!list.length || d.role !== 'team') return;
+  let ok = 0;
+  busy(true);
+  try {
+    for (const file of list) {
+      const name = file.name || '파일';
+      if (!/\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip|jpg|jpeg|png|gif|webp|heic)$/i.test(name)) { toast('「' + name + '」은 올릴 수 없는 형식입니다.', 4000); continue; }
+      if (file.size > 9e6) { toast('「' + name + '」이 너무 큽니다(9MB 이하).', 4000); continue; }
+      try {
+        toast('올리는 중… ' + name, 60000);
+        const url = await readAsDataURL(file);
+        const r = await api('addTeamFile', { file: { id: rid('f'), name: name, mime: file.type || '', data: url.split(',')[1] }, writer: lsGet(LS.me, '') }, { timeout: 150000 });
+        upsert(d.files, r.file); ok++;
+        saveCache(); render();
+      } catch (err) { toast(err.message, 4500); }
+    }
+  } finally { busy(false); }
+  if (ok) toast(ok > 1 ? '파일 ' + ok + '개를 올렸습니다' : '파일을 올렸습니다');
+}
 function fileList(owner) {
   const fs = filesOf(owner).filter(isDocF);
   if (!fs.length) return '';
@@ -1634,7 +1674,8 @@ function adminActs() {
   return `<div class="filters">${[['all', '전체 팀']].concat(d.teams.map((t) => [t.id, t.name])).map(([k, l]) => `<button class="chip" data-act="af" data-k="team" data-v="${esc(k)}" aria-pressed="${f.team === k}">${esc(l)}</button>`).join('')}</div>
   <div class="filters">${[['all', '전체'], ['wait', '확인 대기'], ['보완요청', '보완 요청'], ['확인', '확인 완료']].map(([k, l]) => `<button class="chip" data-act="af" data-k="status" data-v="${k}" aria-pressed="${f.status === k}">${l}${k === 'all' ? '' : ' ' + cnt(k)}</button>`).join('')}</div>
   <div class="tools"><button class="btn primary" data-act="rcpPdf" data-team="${esc(f.team)}" data-status="${esc(f.status)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))}${f.status === 'all' ? '' : ' ' + { wait: '확인 대기', '보완요청': '보완 요청', '확인': '확인 완료' }[f.status]} 영수증 PDF 받기</button><button class="btn" data-act="printTeam" data-id="${esc(f.team)}">${f.team === 'all' ? '전체' : esc(teamName(f.team))} 영수증 인쇄</button><span class="sm" style="align-self:center;color:var(--slate);font-size:14px">기록 ${list.length}건, ${stName[f.status] || '영수증'} 합계 <b class="num">${won(total)}</b></span></div>
-  ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : f.status === 'all' ? '활동 기록이 없습니다.' : '해당하는 기록이 없습니다.'}</div></div>`}`;
+  ${list.length ? `<div class="list" style="margin:0">${list.map((a) => actRow(a, true)).join('')}</div>` : `<div class="list" style="margin:0"><div class="empty">${f.status === 'wait' ? '확인할 영수증이 없습니다.' : f.status === 'all' ? '활동 기록이 없습니다.' : '해당하는 기록이 없습니다.'}</div></div>`}
+  <div class="adm-tf">${teamFilesHtml(tFiles(f.team), true)}</div>`;
 }
 // 일정 탭: 팀으로 거르고(팀마다 다가오는 일정 수), 공가 상태로 거르고(승인 대기 먼저 보기), 전체 팀이면 달력 칸에 팀 이름
 function adminCal() {
@@ -2180,6 +2221,12 @@ const ACT = {
   clearDraft: async () => { const e = evs().find((x) => x.id === (st.form || {}).evId); lsSet(LS.dAct, null); await closeSheet(); if (e) openActForm(null, evPre(e)); },
   saveAct: () => saveAct(),
   view: (el) => viewPhoto(el.dataset.id),
+  delTFile: async (el) => {
+    const x = D().files.find((y) => y.id === el.dataset.id);
+    if (!x || !(await ask('「' + (x.name || '파일') + '」을 지울까요?', '삭제', true))) return;
+    try { busy(true); await api('deleteTeamFile', { id: x.id }); D().files = D().files.filter((y) => y.id !== x.id); saveCache(); render(); toast('지웠습니다'); }
+    catch (e) { toast(e.message, 4000); } finally { busy(false); }
+  },
   dlFile: async (el) => {
     const x = D().files.find((y) => y.id === el.dataset.id);
     if (!x) return;
@@ -2382,12 +2429,13 @@ document.addEventListener('change', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.id === 'att-new') { e.preventDefault(); ACT.addAtt(); }
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('label[data-pick]')) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('label[data-pick], label[data-tpick]')) { e.preventDefault(); e.target.click(); }
   if (e.key === 'Escape') { if ($('#viewer')) ACT.closeViewer(); else if ($('#print')) ACT.closePrint(); else if (sheets.length && !sheets[sheets.length - 1].el.classList.contains('full')) closeSheet(); } // 양식 창은 Esc로도 안 닫음
 });
 $('#pick-cam').addEventListener('change', onPicked);
 $('#pick-file').addEventListener('change', onPicked);
 $('#pick-doc').addEventListener('change', onPicked);
+$('#pick-tfile').addEventListener('change', onTeamPicked);
 
 /* ───────── 시작 ───────── */
 function boot() {
