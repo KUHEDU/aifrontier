@@ -17,7 +17,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-16.3';
+var VERSION = '2026-11-16.4';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -218,6 +218,8 @@ function load_(req) {
   res.files = files.filter(function (f) { return f.team === tid || (open && seen[f.owner]); }).map(pubFile_);
   res.events = evs.filter(function (e) { return e.team === tid; }).map(pubEv_); // 일정은 활동기록공개와 관계없이 자기 팀만
   res.comments = cmts.filter(function (c) { return c.team === tid; });
+  // 다른 팀 일정은 달력에 '어느 팀·무슨 종류'만 보이도록 팀·유형·날짜만 보낸다(제목·시간·장소·공가 정보 없음)
+  res.otherEvents = evs.filter(function (e) { return e.team !== tid; }).map(function (e) { return { team: e.team, type: e.type, date: date_(e.date) || String(e.date) }; });
   return res;
 }
 
