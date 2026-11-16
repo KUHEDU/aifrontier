@@ -17,7 +17,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-16.2';
+var VERSION = '2026-11-16.3';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -66,6 +66,8 @@ var TABS = {
   file: { name: '파일', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['owner', '대상', 't'], ['driveId', '드라이브ID', 't'],
     ['name', '파일명', 't'], ['mime', '형식', 't'], ['size', '크기', 'n'], ['created', '작성시각', 's'], ['deleted', '삭제', 't'],
     ['thumb', '썸네일', 't'], ['writer', '올린사람', 't']] }, // 올린사람 = 11-16 팀 파일함에서 붙인 열(끝에 둔다)
+  cmt: { name: '코멘트', cols: [['id', 'id', 't'], ['team', '팀ID', 't'], ['author', '작성자', 't'], ['role', '구분', 't'], ['body', '내용', 't'],
+    ['created', '작성시각', 's'], ['deleted', '삭제', 't']] }, // 교육팀·멘토가 팀에 남기는 코멘트(처음 쓸 때 탭을 만든다)
   log: { name: '변경이력', cols: [['at', '시각', 's'], ['who', '누가', 't'], ['action', '작업', 't'], ['target', '대상', 't'],
     ['summary', '내용', 't']] }
 };
@@ -76,6 +78,7 @@ var SET_KEYS = {
   studyGoal: ['자율스터디목표', '팀별 자율스터디 목표 횟수'],
   studyHours: ['자율스터디시간', '자율스터디 1회 공가 인정 시간'],
   folderId: ['드라이브폴더ID', '사진·영수증 파일이 저장되는 내 드라이브 폴더'],
+  mentorCode: ['멘토코드', '멘토가 코멘트를 쓰러 들어오는 번호(비우면 멘토 입구 닫힘)'],
   notifyEmail: ['알림메일', '팀이 기록을 남기면 알림을 받을 메일 주소(여러 개는 쉼표, 비우면 보내지 않음)'],
   createdAt: ['만든시각', '처음 설정한 시각']
 };
@@ -86,6 +89,7 @@ var ROUTES = {
   saveRcp: saveRcp_, deleteRcp: deleteRcp_,
   saveEvent: saveEvent_, deleteEvent: deleteEvent_, reviewEvent: reviewEvent_,
   getFile: getFile_, saveMembers: saveMembers_, addTeamFile: addTeamFile_, deleteTeamFile: deleteTeamFile_,
+  saveComment: saveComment_, deleteComment: deleteComment_,
   review: review_, saveTeams: saveTeams_, saveSettings: saveSettings_
 };
 
@@ -169,14 +173,25 @@ function setup_() {
 }
 
 function load_(req) {
-  var who = auth_(req);
+  var who = auth_(req, true);
   var S = settings_();
   var teams = teams_();
   var acts = live_(readAll_('act'));
   var rcps = live_(readAll_('rcp'));
   var files = live_(readAll_('file'));
   var evs = live_(evRows_());
+  var cmts = live_(cmtRows_()).map(pubCmt_);
   var res = { settings: pubSettings_(S) };
+  if (who.mentor) { // 멘토: 모든 팀의 활동 기록·일정·팀 파일을 보고 코멘트를 쓴다(영수증·예산·코드는 안 보냄)
+    res.role = 'mentor';
+    res.teams = teams.map(function (t) { return { id: t.id, name: t.name, project: t.project, members: splitList_(t.members) }; });
+    res.acts = acts.map(pubAct_);
+    res.rcps = [];
+    res.files = files.filter(function (f) { return f.owner.indexOf('R:') !== 0; }).map(pubFile_);
+    res.events = evs.map(pubEv_);
+    res.comments = cmts;
+    return res;
+  }
   if (who.admin) {
     res.role = 'admin';
     res.teams = teams.map(function (t) { return pubTeam_(t, true); });
@@ -187,6 +202,8 @@ function load_(req) {
     res.sheetUrl = ss_().getUrl();
     res.folderUrl = S.folderId ? 'https://drive.google.com/drive/folders/' + S.folderId : '';
     res.notify = notifyInfo_(S);
+    res.comments = cmts;
+    res.mentorCode = String(S.mentorCode || '');
     return res;
   }
   var tid = who.team.id;
@@ -200,6 +217,7 @@ function load_(req) {
   res.acts.forEach(function (a) { seen['A:' + a.id] = true; });
   res.files = files.filter(function (f) { return f.team === tid || (open && seen[f.owner]); }).map(pubFile_);
   res.events = evs.filter(function (e) { return e.team === tid; }).map(pubEv_); // 일정은 활동기록공개와 관계없이 자기 팀만
+  res.comments = cmts.filter(function (c) { return c.team === tid; });
   return res;
 }
 
@@ -386,10 +404,12 @@ function reviewEvent_(req) {
 }
 
 function getFile_(req) {
-  var who = auth_(req);
+  var who = auth_(req, true);
   var f = find_(readAll_('file'), String(req.id || ''));
   if (!f || f.deleted === 'Y') throw appErr_('not_found', '파일을 찾을 수 없습니다.');
-  if (!who.admin && f.team !== who.team.id) {
+  if (who.mentor) {
+    if (f.owner.indexOf('R:') === 0) throw appErr_('forbidden', '볼 수 없는 파일입니다.');
+  } else if (!who.admin && f.team !== who.team.id) {
     var shared = settings_().openActs === 'Y' && f.owner.indexOf('A:') === 0;
     if (!shared) throw appErr_('forbidden', '볼 수 없는 파일입니다.');
   }
@@ -469,6 +489,14 @@ function saveSettings_(req) {
       if (clash) throw appErr_('bad', '팀 코드와 같은 번호는 관리자 코드로 쓸 수 없습니다.');
       setSetting_('adminCode', code);
     }
+    if (s.mentorCode !== undefined) {
+      var mcode = String(s.mentorCode).trim();
+      if (mcode) {
+        if (!/^[0-9A-Za-z]{4,12}$/.test(mcode)) throw appErr_('bad', '멘토 코드는 4~12자리 숫자·영문이어야 합니다.');
+        if (teams_().some(function (t) { return String(t.code).trim() === mcode; }) || mcode === String(settings_().adminCode).trim()) throw appErr_('bad', '팀 코드·관리자 코드와 같은 번호는 멘토 코드로 쓸 수 없습니다.');
+      }
+      setSetting_('mentorCode', mcode);
+    }
     if (s.notifyEmail !== undefined) {
       var to = emails_(s.notifyEmail, true);
       var before = settings_().notifyEmail;
@@ -478,17 +506,27 @@ function saveSettings_(req) {
         if (to.join(', ') !== before) sendHello_(to); // 새 주소로 바로 한 통 보내 확인할 수 있게
       }
     }
-    log_(who, '설정 저장', '', JSON.stringify(s.adminCode ? { adminCode: '변경' } : s).slice(0, 200));
+    log_(who, '설정 저장', '', JSON.stringify(s.adminCode ? { adminCode: '변경' } : s.mentorCode !== undefined ? { mentorCode: s.mentorCode ? '변경' : '닫음' } : s).slice(0, 200));
     var S2 = settings_();
-    return { settings: pubSettings_(S2), notify: notifyInfo_(S2) };
+    return { settings: pubSettings_(S2), notify: notifyInfo_(S2), mentorCode: String(S2.mentorCode || '') };
   });
 }
 
 /* ───────── 인증 ───────── */
 
-function auth_(req) {
+function auth_(req, allowMentor) {
   if (!isReady_()) throw appErr_('not_ready', '아직 설정되지 않았습니다. 교육팀이 처음 설정을 마쳐야 합니다.');
   var a = req.auth || {};
+  if (a.mentor !== undefined && a.mentor !== null && String(a.mentor) !== '') {
+    guard_('mentor');
+    var mc = String(settings_().mentorCode || '').trim();
+    if (!mc || String(a.mentor).trim() !== mc) {
+      noteFail_('mentor');
+      throw appErr_('auth_mentor', '멘토 코드가 맞지 않습니다. 교육팀에 확인해 주세요.');
+    }
+    if (!allowMentor) throw appErr_('forbidden', '멘토는 코멘트만 남길 수 있습니다.');
+    return { admin: false, mentor: true, team: null, label: '멘토' };
+  }
   if (a.admin !== undefined && a.admin !== null && String(a.admin) !== '') {
     guard_('admin');
     if (String(a.admin).trim() !== String(settings_().adminCode).trim()) {
@@ -774,6 +812,43 @@ function deleteTeamFile_(req) {
     writeRow_('file', { deleted: 'Y' }, f._row);
     try { DriveApp.getFileById(f.driveId).setTrashed(true); } catch (e) { /* 이미 지워진 파일 */ }
     log_(who, '파일 삭제', f.id, f.name);
+    return { deleted: true };
+  });
+}
+
+function cmtRows_() { return ss_().getSheetByName(TABS.cmt.name) ? readAll_('cmt') : []; }
+function pubCmt_(c) { return { id: c.id, team: c.team, author: c.author, role: c.role, body: c.body, created: c.created }; }
+// 교육팀·멘토만 쓴다. 같은 id로 다시 오면(재시도) 이미 저장된 것을 돌려준다
+function saveComment_(req) {
+  var who = auth_(req, true);
+  if (!who.admin && !who.mentor) throw appErr_('forbidden', '교육팀과 멘토만 코멘트를 남길 수 있습니다.');
+  var c = req.comment || {};
+  return withLock_(function () {
+    var tid = str_(c.team, 10);
+    if (!teamById_(tid)) throw appErr_('bad', '팀을 골라 주세요.');
+    var body = str_(c.body, 2000);
+    if (!body) throw appErr_('bad', '코멘트 내용을 적어 주세요.');
+    var author = str_(c.author, 30) || (who.admin ? '교육팀' : '');
+    if (!author) throw appErr_('bad', '이름을 적어 주세요.');
+    var id = cleanId_(c.id, 'c');
+    ensureCols_('cmt');
+    var ex = find_(readAll_('cmt'), id);
+    if (ex) return { comment: pubCmt_(ex) };
+    var obj = { id: id, team: tid, author: author, role: who.admin ? '교육팀' : '멘토', body: body, created: now_(), deleted: '' };
+    writeRow_('cmt', obj, 0);
+    log_(who, '코멘트 남김', id, tid + ' ' + author + ': ' + body.slice(0, 60));
+    return { comment: pubCmt_(obj) };
+  });
+}
+function deleteComment_(req) {
+  var who = auth_(req, true);
+  if (!who.admin && !who.mentor) throw appErr_('forbidden', '교육팀과 멘토만 지울 수 있습니다.');
+  return withLock_(function () {
+    var c = find_(cmtRows_(), String(req.id || ''));
+    if (!c || c.deleted === 'Y') return { deleted: true };
+    if (who.mentor && c.role !== '멘토') throw appErr_('forbidden', '교육팀이 남긴 코멘트는 지울 수 없습니다.');
+    writeRow_('cmt', { deleted: 'Y' }, c._row);
+    log_(who, '코멘트 삭제', c.id, c.team + ' ' + c.author);
     return { deleted: true };
   });
 }

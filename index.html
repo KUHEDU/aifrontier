@@ -186,6 +186,18 @@ select.in option{color:var(--ink)}
 .tf-meta{font-size:13px;color:var(--mute)}
 .tf-x{flex:none;width:36px;height:36px;margin-right:10px;border-radius:50%;border:0;background:#EEF2F6;color:var(--slate);font-size:18px;cursor:pointer}
 .adm-tf{margin-top:22px}
+.cmt{padding:14px 16px;border-bottom:1px solid var(--line2)}
+.cmt:last-child{border-bottom:0}
+.cmt-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cmt-h .tf-x{margin:0 0 0 auto;width:30px;height:30px}
+.cmt-t{color:var(--mute);font-size:13px}
+.cmt-b{margin:8px 0 0;white-space:pre-wrap;word-break:break-word;line-height:1.6}
+.tag.mentor{background:#F3E8FF;color:#6B2FB3}
+.tag.edu{background:#E3EEFF;color:var(--blue)}
+.cmt-new textarea{min-height:110px}
+.cmt-send{display:flex;gap:10px;align-items:flex-end}
+.cmt-send .field{flex:1}
+.btn.ghost.mentor-out{color:#fff;height:34px;background:rgba(255,255,255,.12)}
 .ph-add{aspect-ratio:1;border-radius:var(--r-thumb);border:1.5px dashed #AFC0D2;background:#fff;color:var(--blue);font-size:13px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .cam-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .cam-row .btn{height:56px}
@@ -359,6 +371,7 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 .atabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 .atabs button{flex:none;border:0;background:transparent;color:rgba(255,255,255,.7);height:46px;padding:0 14px;font-size:15px;font-weight:650;border-bottom:3px solid transparent}
 .atabs button[aria-selected="true"]{color:#fff;border-bottom-color:var(--sky)}
+@media (max-width:480px){.atabs{gap:0}.atabs button{padding:0 9px;font-size:14px}}
 .atabs .cnt{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:10px;background:var(--sky);color:var(--navy);font-size:12px;font-weight:800;line-height:20px}
 .admin-main{max-width:1100px;margin:0 auto;padding:16px 16px 48px}
 .tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
@@ -470,11 +483,11 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <input type="file" id="pick-tfile" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,image/*" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-16.2';
+const APP_VERSION = '2026-11-16.3';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
-const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', calView: 'af.calView' };
+const LS ={ api: 'af.api', auth: 'af.auth', me: 'af.me', cache: 'af.cache', dAct: 'af.draft.act', calView: 'af.calView', cmtRead: 'af.cmtRead' };
 const ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 const CATS = ['식비·다과', '인쇄·자료', '도서', '소모품', '장소 대관', '기타'];
 const METHODS = ['개인카드', '법인카드', '현금', '기타'];
@@ -746,7 +759,7 @@ async function refresh(quiet) {
     rerenderSheets();
   } catch (e) {
     if (key !== JSON.stringify(st.auth)) return;
-    if (e instanceof AppErr && (e.code === 'auth' || e.code === 'auth_admin')) { logout(e.message); return; }
+    if (e instanceof AppErr && (e.code === 'auth' || e.code === 'auth_admin' || e.code === 'auth_mentor')) { logout(e.message); return; }
     st.lastErr = e.message;
     if (!st.data) { renderError(e.message); return; }
     toast(e.message, 4000);
@@ -764,7 +777,7 @@ function logout(msg) {
 const app = () => $('#app');
 function render() {
   if (!st.data) return;
-  if (st.data.role === 'admin') renderAdmin(); else renderTeam();
+  if (st.data.role === 'admin') renderAdmin(); else if (st.data.role === 'mentor') renderMentor(); else renderTeam();
 }
 
 function renderError(msg) {
@@ -824,17 +837,19 @@ async function renderLogin(msg, adminFirst) {
   const pick = (name, mem, sub) => `<span class="tp-body"><span class="tp-line"><span>${esc(name)}</span>${mem ? `<span class="tp-mem">${esc(mem)}</span>` : ''}</span><small>${esc(sub)}</small></span>`;
   $('#login-box').innerHTML = `<form id="login-form" autocomplete="off"><fieldset style="border:0;padding:0;margin:0"><legend class="sr">팀 선택</legend><div class="team-pick">
       ${teams.map((t, i) => `<label><input type="radio" name="team" value="${esc(t.id)}" ${i === 0 && !adminFirst ? 'checked' : ''}>${pick(t.name, Array.isArray(t.members) ? t.members.join(', ') : '', t.project)}</label>`).join('')}
-      <label><input type="radio" name="team" value="__admin" ${adminFirst ? 'checked' : ''}>${pick('교육팀(관리자)', '', '관리자 코드')}</label></div></fieldset>
+      <label><input type="radio" name="team" value="__admin" ${adminFirst === true ? 'checked' : ''}>${pick('교육팀(관리자)', '', '관리자 코드')}</label>
+      <label><input type="radio" name="team" value="__mentor" ${adminFirst === 'mentor' ? 'checked' : ''}>${pick('멘토', '', '멘토 코드')}</label></div></fieldset>
     <div class="field"><label for="login-code">코드</label><input id="login-code" class="in" inputmode="numeric" autocomplete="off" placeholder="팀 코드 6자리"></div>
     <button class="btn primary block" type="submit">들어가기</button></form>`;
-  if (adminFirst) $('#login-code').placeholder = '관리자 코드';
-  $('#login-form').addEventListener('change', (e) => { if (e.target.name === 'team') $('#login-code').placeholder = e.target.value === '__admin' ? '관리자 코드' : '팀 코드 6자리'; });
+  const ph = (v) => (v === '__admin' ? '관리자 코드' : v === '__mentor' ? '멘토 코드' : '팀 코드 6자리');
+  if (adminFirst) $('#login-code').placeholder = ph(adminFirst === 'mentor' ? '__mentor' : '__admin');
+  $('#login-form').addEventListener('change', (e) => { if (e.target.name === 'team') $('#login-code').placeholder = ph(e.target.value); });
   $('#login-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const tid = (new FormData(e.target)).get('team');
     const code = $('#login-code').value.trim();
     if (!code) { $('#login-code').focus(); return; }
-    st.auth = tid === '__admin' ? { admin: code } : { team: tid, code: code };
+    st.auth = tid === '__admin' ? { admin: code } : tid === '__mentor' ? { mentor: code } : { team: tid, code: code };
     lsSet(LS.auth, st.auth);
     st.data = null;
     app().innerHTML = `<div class="wrap intro"><span class="mark">${stars(3, 3, true)}AI프론티어 팀 기록</span><h1>불러오는 중…</h1></div>`;
@@ -855,6 +870,7 @@ function renderTeam() {
   if (!tabs.some((x) => x[0] === st.tab)) st.tab = 'acts';
   const nx = upEvs[0], evFix = myEvs.filter((e) => lvState(e) === '보완요청');
   const recDue = myEvs.filter((e) => dayDiff(e.date) <= 0 && !actOfEv(e)).sort((x, y) => byEvAsc(y, x)); // 활동 기록을 기다리는 일정(활동 기록은 일정에서만 남김)
+  const myCmts = cmts().filter((c) => c.team === t.id).sort(cmtSort), cRead = cmtReadSet(t.id), myUnread = myCmts.filter((c) => !cRead.has(c.id)).length;
   app().innerHTML = `
   <header class="band"><div class="wrap">
     <div class="band-top"><span class="course">${esc(set.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="teamMenu" aria-label="팀 메뉴">${ICON.more}</button></div>
@@ -871,10 +887,12 @@ function renderTeam() {
     ${evFix.length ? `<button class="notice" data-act="goEv" data-id="${esc(evFix[0].id)}" data-date="${esc(evFix[0].date)}"><span class="grow">교육팀이 공가 일정 ${evFix.length}건에 보완을 요청했습니다.</span><b>보기</b></button>` : ''}
     ${recDue.length ? `<button class="notice info" data-act="actFromEv" data-id="${esc(recDue[0].id)}">${ICON.note}<span class="grow">${fmtD(recDue[0].date)} 「${esc(recDue[0].title || recDue[0].type)}」 ${recDue[0].leave ? '공가 ' : ''}일정의 활동 기록을 남겨 주세요.${recDue.length > 1 ? ` (기록 전 ${recDue.length}건)` : ''}</span><b>기록 쓰기</b></button>` : ''}
     ${st.lastErr ? `<button class="notice err" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}
+    ${myCmts.length ? `<button class="notice info cmt-note" data-act="cmtAll">${ICON.note}<span class="grow"><b>코멘트</b> ${esc(myCmts[0].role)} ${esc(myCmts[0].author)}: ${esc(myCmts[0].body.slice(0, 40))}${myCmts[0].body.length > 40 ? '…' : ''}</span><b>${myUnread ? '새 ' + myUnread + '개' : myCmts.length + '개'}</b></button>` : ''}
     ${nx ? `<button class="notice info" data-act="goEv" data-id="${esc(nx.id)}" data-date="${esc(nx.date)}">${ICON.cal}<span class="grow"><b>다음 일정</b> ${fmtD(nx.date)}${nx.start ? ' ' + esc(nx.start) : ''} ${esc(nx.title || nx.type)}${lvState(nx) ? ' (' + LV_LABEL[lvState(nx)] + ')' : ''}</span><b>${ddayText(nx.date)}</b></button>` : ''}
     ${tabs.length ? `<div class="tabs" role="tablist">${tabs.map(([k, l, n]) => `<button role="tab" aria-selected="${st.tab === k}" data-act="tab" data-tab="${k}">${l}<span class="cnt">${n}</span></button>`).join('')}</div>` : ''}
     ${st.tab === 'others' ? othersList(others) : calSection(myEvs, { acts: myActs, tfiles: tFiles(t.id) })}
   </div>`;
+  setTimeout(cmtPopup, 0);
 }
 
 function actRow(a, showTeam) {
@@ -1531,6 +1549,66 @@ async function onTeamPicked(e) {
   } finally { busy(false); }
   if (ok) toast(ok > 1 ? '파일 ' + ok + '개를 올렸습니다' : '파일을 올렸습니다');
 }
+/* ───── 코멘트(교육팀·멘토 → 팀) ───── */
+const cmts = () => D().comments || [];
+const cmtSort = (a, b) => String(b.created).localeCompare(String(a.created));
+function cmtWhen(c) { const d = String(c.created || ''); return d ? fmtD(d.slice(0, 10)) + ' ' + d.slice(11, 16) : ''; }
+function cmtItem(c, canDel, showTeam) {
+  return `<div class="cmt"><div class="cmt-h">${showTeam ? `<span class="tag team">${esc(shortTeam(c.team))}</span>` : ''}<span class="tag ${c.role === '멘토' ? 'mentor' : 'edu'}">${esc(c.role)}</span><b>${esc(c.author)}</b><span class="cmt-t">${esc(cmtWhen(c))}</span>${canDel ? `<button class="tf-x" data-act="delCmt" data-id="${esc(c.id)}" aria-label="코멘트 지우기">×</button>` : ''}</div><p class="cmt-b">${esc(c.body)}</p></div>`;
+}
+// 교육팀·멘토 화면: 팀 고르기 → 쓰기 → 그 팀 코멘트(최신순)
+function cmtPanel() {
+  const d = D(), role = d.role;
+  if (!d.teams.some((t) => t.id === st.cmtTeam)) st.cmtTeam = (d.teams[0] || {}).id || '';
+  const list = cmts().filter((c) => c.team === st.cmtTeam).sort(cmtSort);
+  const me = role === 'admin' ? (lsGet('af.cmtName', '') || '교육팀') : lsGet(LS.me, '');
+  return `<div class="filters">${d.teams.map((t) => `<button class="chip" data-act="cmtTeam" data-v="${esc(t.id)}" aria-pressed="${st.cmtTeam === t.id}">${esc(t.name)}${cmts().some((c) => c.team === t.id) ? ` ${cmts().filter((c) => c.team === t.id).length}` : ''}</button>`).join('')}</div>
+  <div class="panel cmt-new"><h2>${esc(teamName(st.cmtTeam))}에 코멘트 남기기</h2><p>남기면 팀원이 앱을 열 때 팝업으로 뜹니다.</p>
+    <div class="field"><label for="cmt-body" class="sr">코멘트</label><textarea id="cmt-body" class="in" maxlength="2000" placeholder="팀에 전할 말을 적어 주세요."></textarea></div>
+    <div class="cmt-send"><div class="field" style="margin:0"><label for="cmt-name">이름</label><input id="cmt-name" class="in" maxlength="30" value="${esc(me)}" placeholder="${role === 'mentor' ? '멘토 이름' : '교육팀'}"></div><button class="btn primary" data-act="sendCmt">코멘트 남기기</button></div></div>
+  <div class="day-h"><h3>${esc(teamName(st.cmtTeam))} 코멘트 <span class="cnt">${list.length}</span></h3></div>
+  <div class="list cmt-list">${list.length ? list.map((c) => cmtItem(c, role === 'admin' || c.role === '멘토', false)).join('') : '<div class="empty"><p>아직 남긴 코멘트가 없습니다.</p></div>'}</div>`;
+}
+// 팀 화면: 안 읽은 코멘트는 앱을 열 때 팝업([확인]을 누르면 이 기기에서는 다시 안 뜸)
+function cmtReadSet(team) { const m = lsGet(LS.cmtRead, {}) || {}; return new Set(m[team] || []); }
+function cmtMarkRead(team, ids) { const m = lsGet(LS.cmtRead, {}) || {}; m[team] = [...new Set((m[team] || []).concat(ids))].slice(-500); lsSet(LS.cmtRead, m); }
+function cmtPopup() {
+  const d = D();
+  if (d.role !== 'team' || !d.team || sheets.length) return;
+  const read = cmtReadSet(d.team.id), un = cmts().filter((c) => c.team === d.team.id && !read.has(c.id)).sort(cmtSort);
+  st.cmtShown = st.cmtShown || new Set();
+  if (!un.length || un.every((c) => st.cmtShown.has(c.id))) return;
+  un.forEach((c) => st.cmtShown.add(c.id));
+  openSheet(`${sheetHead('새 코멘트')}<div class="sh-body"><p class="hint" style="margin:0 0 12px">교육팀·멘토가 남긴 코멘트 ${un.length}개</p><div class="list cmt-list">${un.map((c) => cmtItem(c, false, false)).join('')}</div></div>
+    <div class="sh-foot"><button class="btn primary block" data-act="readCmt" data-ids="${esc(un.map((c) => c.id).join(','))}">확인</button></div>`, { label: '새 코멘트' });
+}
+function cmtAllSheet() {
+  const d = D(), list = cmts().filter((c) => c.team === d.team.id).sort(cmtSort);
+  openSheet(`${sheetHead('코멘트')}<div class="sh-body"><div class="list cmt-list">${list.map((c) => cmtItem(c, false, false)).join('') || '<div class="empty"><p>아직 코멘트가 없습니다.</p></div>'}</div></div>`, { label: '코멘트' });
+  cmtMarkRead(d.team.id, list.map((c) => c.id));
+}
+
+/* ───── 멘토 화면 ───── */
+function renderMentor() {
+  const d = D();
+  if (!['cmt', 'acts'].includes(st.mtab)) st.mtab = 'cmt';
+  const tid = d.teams.some((t) => t.id === st.cmtTeam) ? st.cmtTeam : (d.teams[0] || {}).id;
+  const acts = d.acts.filter((a) => a.team === tid).sort(byDateDesc);
+  app().innerHTML = `<header class="admin-band"><div class="admin-main" style="padding-top:0;padding-bottom:0">
+    <div class="band-top"><span class="course">${esc(d.settings.courseName || 'AI프론티어')}</span><button class="btn ghost mentor-out" data-act="askLogout">나가기</button></div>
+    <h1>멘토</h1>
+    <nav class="atabs" role="tablist">${[['cmt', '코멘트'], ['acts', '팀 활동']].map(([k, l]) => `<button role="tab" data-act="mtab" data-tab="${k}" aria-selected="${st.mtab === k}">${l}</button>`).join('')}</nav></div></header>
+  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.mtab === 'cmt' ? cmtPanel()
+    : `<div class="filters">${d.teams.map((t) => `<button class="chip" data-act="cmtTeam" data-v="${esc(t.id)}" aria-pressed="${tid === t.id}">${esc(t.name)}</button>`).join('')}</div>
+    <div class="day-h"><h3>${esc(teamName(tid))} 활동 기록 <span class="cnt">${acts.length}</span></h3></div>${acts.length ? `<div class="list">${acts.map((a) => actRow(a)).join('')}</div>` : '<div class="list"><div class="empty"><p>아직 활동 기록이 없습니다.</p></div></div>'}
+    <div class="adm-tf">${teamFilesHtml(tFiles(tid), false).replace(/<button class="tf-x"[^>]*>×<\/button>/g, '').replace('<br>위의 [파일 추가]로 회의록·발표 자료 등을 올려 두세요.', '')}</div>`}</main>`;
+}
+
+function mentorLink() {
+  const m = /^https:\/\/script\.google\.com\/macros\/s\/([\w-]+)\/exec$/.exec(st.api);
+  const extra = HOME_API && st.api === HOME_API ? '' : (m ? '&s=' + m[1] : '&api=' + encodeURIComponent(st.api));
+  return location.origin + location.pathname + '#m=' + encodeURIComponent(D().mentorCode || '') + extra;
+}
 function fileList(owner) {
   const fs = filesOf(owner).filter(isDocF);
   if (!fs.length) return '';
@@ -1617,14 +1695,14 @@ async function viewPhoto(id) {
 function renderAdmin() {
   const d = D();
   const waitN = d.rcps.filter((r) => r.status === '제출').length, evWait = evs().filter((e) => lvState(e) === '대기').length;
-  if (!['dash', 'acts', 'cal', 'set'].includes(st.atab)) st.atab = 'acts';
+  if (!['dash', 'acts', 'cal', 'cmt', 'set'].includes(st.atab)) st.atab = 'acts';
   app().innerHTML = `<header class="admin-band"><div class="admin-main" style="padding-top:0;padding-bottom:0">
     <div class="band-top"><span class="course">${esc(d.settings.courseName || 'AI프론티어')}</span><button class="icon-btn" data-act="adminMenu" aria-label="관리자 메뉴">${ICON.more}</button></div>
     <h1>교육팀 관리</h1>
     <nav class="atabs" role="tablist">
-      ${[['dash', '팀별 현황'], ['acts', '활동 기록'], ['cal', '일정'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'acts' && waitN ? `<span class="cnt">${waitN}</span>` : ''}${k === 'cal' && evWait ? `<span class="cnt">${evWait}</span>` : ''}</button>`).join('')}
+      ${[['dash', '팀별 현황'], ['acts', '활동 기록'], ['cal', '일정'], ['cmt', '코멘트'], ['set', '설정']].map(([k, l]) => `<button role="tab" data-act="atab" data-tab="${k}" aria-selected="${st.atab === k}">${l}${k === 'acts' && waitN ? `<span class="cnt">${waitN}</span>` : ''}${k === 'cal' && evWait ? `<span class="cnt">${evWait}</span>` : ''}</button>`).join('')}
     </nav></div></header>
-  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'acts' ? adminActs() : st.atab === 'cal' ? adminCal() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
+  <main class="admin-main">${st.lastErr ? `<button class="notice err" style="margin:0 0 14px;width:100%" data-act="retry"><span class="grow">${esc(st.lastErr)}</span><b>다시 시도</b></button>` : ''}${st.atab === 'acts' ? adminActs() : st.atab === 'cal' ? adminCal() : st.atab === 'cmt' ? cmtPanel() : st.atab === 'set' ? adminSet() : adminDash()}</main>`;
 }
 function adminDash() {
   const d = D(), goal = d.settings.studyGoal;
@@ -1708,6 +1786,9 @@ function adminSet() {
     <div class="field"><label for="set-course">과정 이름</label><input id="set-course" class="in" value="${esc(s.courseName)}"></div>
     <button class="btn primary" data-act="saveSettings">저장</button></div>
   ${d.notify ? notifyPanel(d.notify) : ''}
+  <div class="panel"><h2>멘토 입구</h2><p>멘토는 이 코드 하나로 들어와 모든 팀의 활동 기록·일정·팀 파일을 보고 코멘트를 남깁니다(영수증·예산은 못 봅니다). 비우고 저장하면 멘토 입구가 닫힙니다.</p>
+    <div class="inline-add"><input id="set-mentor" class="in" maxlength="12" value="${esc(d.mentorCode || '')}" placeholder="멘토 코드(4~12자리)"><button class="btn" data-act="saveMentorCode">저장</button></div>
+    ${d.mentorCode ? `<button class="btn" style="margin-top:10px" data-act="copyMentorLink">멘토 링크 복사</button>` : ''}</div>
   <div class="panel"><h2>관리자 코드 바꾸기</h2><p>바꾸면 다른 기기의 관리자 화면은 새 코드로 다시 들어가야 합니다.</p>
     <div class="inline-add"><input id="set-admin" class="in" maxlength="12" placeholder="새 관리자 코드(4~12자리)"><button class="btn" data-act="saveAdminCode">바꾸기</button></div></div>
   <div class="panel"><h2>연결 정보</h2><p style="word-break:break-all">서버: ${esc(st.api)}</p><div class="btn-row"><button class="btn" data-act="showSetupAgain">설치 안내 보기</button><button class="btn danger" data-act="askLogout">이 기기에서 나가기</button></div></div>`;
@@ -2221,6 +2302,37 @@ const ACT = {
   clearDraft: async () => { const e = evs().find((x) => x.id === (st.form || {}).evId); lsSet(LS.dAct, null); await closeSheet(); if (e) openActForm(null, evPre(e)); },
   saveAct: () => saveAct(),
   view: (el) => viewPhoto(el.dataset.id),
+  cmtTeam: (el) => { st.cmtTeam = el.dataset.v; render(); },
+  mtab: (el) => { st.mtab = el.dataset.tab; render(); window.scrollTo(0, 0); },
+  cmtAll: () => { cmtAllSheet(); render(); },
+  readCmt: async (el) => { cmtMarkRead(D().team.id, el.dataset.ids.split(',')); await closeSheet(); render(); },
+  sendCmt: async (el) => {
+    const body = $('#cmt-body').value.trim(), name = $('#cmt-name').value.trim();
+    if (!body) { toast('코멘트 내용을 적어 주세요.'); $('#cmt-body').focus(); return; }
+    if (!name && D().role === 'mentor') { toast('이름을 적어 주세요.'); $('#cmt-name').focus(); return; }
+    if (D().role === 'mentor') lsSet(LS.me, name); else lsSet('af.cmtName', name);
+    el.disabled = true;
+    try {
+      busy(true);
+      const r = await api('saveComment', { comment: { id: rid('c'), team: st.cmtTeam, body: body, author: name } });
+      if (!D().comments) D().comments = [];
+      upsert(D().comments, r.comment); saveCache(); render(); toast(teamName(r.comment.team) + '에 코멘트를 남겼습니다');
+    } catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
+  },
+  delCmt: async (el) => {
+    if (!(await ask('이 코멘트를 지울까요? 팀 화면에서도 사라집니다.', '삭제', true))) return;
+    try { busy(true); await api('deleteComment', { id: el.dataset.id }); D().comments = cmts().filter((c) => c.id !== el.dataset.id); saveCache(); render(); toast('지웠습니다'); }
+    catch (e) { toast(e.message, 4000); } finally { busy(false); }
+  },
+  saveMentorCode: async (el) => {
+    const code = $('#set-mentor').value.trim();
+    if (code && !/^[0-9A-Za-z]{4,12}$/.test(code)) { toast('4~12자리 숫자·영문으로 넣어 주세요.'); return; }
+    if (!code && !(await ask('멘토 코드를 비우면 멘토가 들어올 수 없습니다. 닫을까요?', '닫기', true))) return;
+    el.disabled = true;
+    try { busy(true); const r = await api('saveSettings', { settings: { mentorCode: code } }); D().mentorCode = r.mentorCode; saveCache(); render(); toast(code ? '멘토 코드를 저장했습니다' : '멘토 입구를 닫았습니다'); }
+    catch (e) { toast(e.message, 4500); el.disabled = false; } finally { busy(false); }
+  },
+  copyMentorLink: () => copyText(mentorLink(), '멘토 링크를 복사했습니다'),
   delTFile: async (el) => {
     const x = D().files.find((y) => y.id === el.dataset.id);
     if (!x || !(await ask('「' + (x.name || '파일') + '」을 지울까요?', '삭제', true))) return;
@@ -2449,6 +2561,7 @@ function boot() {
     if (api) { st.api = api; lsSet(LS.api, api); }
     if (short) { st.auth = { team: short[1], code: short[2] }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
     else if (h.get('t') && h.get('k')) { st.auth = { team: h.get('t'), code: h.get('k') }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
+    if (h.get('m')) { st.auth = { mentor: h.get('m') }; lsSet(LS.auth, st.auth); lsSet(LS.cache, null); }
     if (h.has('admin')) mode = 'admin';
     if (h.has('setup')) mode = 'setup';
     history.replaceState(null, '', location.pathname + location.search); // 코드가 주소창에 남지 않게
@@ -2463,7 +2576,7 @@ function boot() {
 }
 window.addEventListener('hashchange', () => {
   // 같은 탭에서 다른 팀 링크를 누른 경우(주소 뒤 # 만 바뀜)
-  if (!/[#&](t|k|s|api)=|[#&](admin|setup)(&|$)/.test(location.hash) && !SHORT_LINK.test(location.hash.slice(1))) return;
+  if (!/[#&](t|k|s|api|m)=|[#&](admin|setup)(&|$)/.test(location.hash) && !SHORT_LINK.test(location.hash.slice(1))) return;
   while (sheets.length) popSheet();
   st.data = null;
   boot();
