@@ -168,6 +168,14 @@ select.in option{color:var(--ink)}
 .ph{position:relative;aspect-ratio:1;border-radius:var(--r-thumb);background:#E9EEF3 center/cover no-repeat;overflow:hidden;border:0;padding:0}
 .ph .x{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(9,25,38,.72);color:#fff;font-size:16px;line-height:28px}
 .ph .pdf{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;color:var(--danger);font-size:14px}
+.doc-row{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;background:#fff;border:1px solid var(--line2);border-radius:var(--r-thumb);margin-bottom:8px;width:100%;text-align:left;font:inherit;color:var(--ink)}
+.doc-row svg{flex:none;width:20px;height:20px;color:var(--blue)}
+.doc-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.doc-s{flex:none;color:var(--mute);font-size:13px}
+.doc-row .x{position:static;flex:none;width:32px;height:32px;border-radius:50%;border:0;background:#EEF2F6;color:var(--slate);font-size:18px}
+.doc-dl{flex:none;color:var(--blue);font-size:14px}
+.doc-list .doc-row{border:0;border-radius:0;margin:0;border-bottom:1px solid var(--line2)}
+.doc-add{width:100%;justify-content:center}
 .ph-add{aspect-ratio:1;border-radius:var(--r-thumb);border:1.5px dashed #AFC0D2;background:#fff;color:var(--blue);font-size:13px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .cam-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .cam-row .btn{height:56px}
@@ -448,9 +456,10 @@ body.noscroll #toast{bottom:calc(96px + env(safe-area-inset-bottom))}
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="pick-cam" accept="image/*" capture="environment" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" id="pick-file" accept="image/*,application/pdf" multiple class="sr" tabindex="-1" aria-hidden="true">
+<input type="file" id="pick-doc" accept=".pdf,.hwp,.hwpx,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" multiple class="sr" tabindex="-1" aria-hidden="true">
 <script>
 'use strict';
-const APP_VERSION = '2026-11-09.3';
+const APP_VERSION = '2026-11-16.1';
 // 게시 주소에서는 서버 주소를 내장해 팀 링크를 짧게(#A1-123456) 만든다. 시험·사본은 예전처럼 링크·설정 화면으로 연결
 const HOME_API = location.hostname === 'kuhedu.github.io' ? 'https://script.google.com/macros/s/AKfycbwWfTAs4xVWG6po4S8piz-FzMyIM1SuxCiZV-2311GYGwzWK5EgiJu-WqLxnUIbJtMC4w/exec' : '';
 const SHORT_LINK = /^([A-Za-z0-9]{1,8})-([0-9A-Za-z]{4,12})$/;
@@ -459,7 +468,11 @@ const ACT_TYPES = ['자율스터디', '팀 회의', '멘토링', '기타'];
 const CATS = ['식비·다과', '인쇄·자료', '도서', '소모품', '장소 대관', '기타'];
 const METHODS = ['개인카드', '법인카드', '현금', '기타'];
 const STATUS_LABEL = { '제출': '확인 대기', '확인': '확인 완료', '보완요청': '보완 요청' };
-const MAX_FILES = 4;
+const MAX_FILES = 4, MAX_DOCS = 4;
+const DOC_EXT = /\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip)$/i;
+// 활동 기록의 첨부: 사진(image/*)과 일반 파일(그 밖). 영수증은 모두 사진 칸
+const isDocF = (x) => !/^image\//.test(x.mime || '');
+const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB';
 const MAX_RCPS = 10; // 한 활동에 붙이는 영수증 수
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -854,9 +867,9 @@ function renderTeam() {
 }
 
 function actRow(a, showTeam) {
-  const nPh = filesOf('A:' + a.id).length, rcs = rcpsOf(a.id), rs = rcpState(rcs);
+  const aF = filesOf('A:' + a.id), nPh = aF.filter((x) => !isDocF(x)).length, nDoc = aF.length - nPh, rcs = rcpsOf(a.id), rs = rcpState(rcs);
   const time = a.start && a.end ? `${a.start}–${a.end} (${hoursText(a.hours)})` : (a.hours ? hoursText(a.hours) : '');
-  const meta = [time, a.attendees && a.attendees.length ? '참석 ' + a.attendees.length + '명' : '', nPh ? '사진 ' + nPh : '', rcs.length ? '영수증 ' + rcs.length + '건' : ''].filter(Boolean).join(', ');
+  const meta = [time, a.attendees && a.attendees.length ? '참석 ' + a.attendees.length + '명' : '', nPh ? '사진 ' + nPh : '', nDoc ? '파일 ' + nDoc : '', rcs.length ? '영수증 ' + rcs.length + '건' : ''].filter(Boolean).join(', ');
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(a.date) || [];
   const wd = dm.length ? WD[new Date(+dm[1], +dm[2] - 1, +dm[3]).getDay()] : '';
   return `<button class="row" data-act="openAct" data-id="${esc(a.id)}"><div class="row-date"><b>${dm.length ? (+dm[2]) + '.' + (+dm[3]) : ''}</b><span>${wd}</span></div>
@@ -1096,7 +1109,7 @@ async function printLeave(id) {
   const t = teamOf(e.team) || { name: teamName(e.team), project: '' }, course = d.settings.courseName || 'AI프론티어';
   const a = actOfEv(e), people = e.people || [], att = a ? a.attendees || [] : [];
   const miss = a ? people.filter((n) => !att.includes(n)) : [], extra = a ? att.filter((n) => !people.includes(n)) : [];
-  const photos = a ? filesOf('A:' + a.id).filter((f) => f.mime !== 'application/pdf').slice(0, 2) : [];
+  const photos = a ? filesOf('A:' + a.id).filter((f) => !isDocF(f)).slice(0, 2) : [];
   const title = a ? '공가 지원 활동 확인서' : '공가 지원 일정 확인서', ok = lvState(e) === '승인', now = new Date();
   const tr = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
   const names = (arr) => (arr.length ? esc(arr.join(', ')) + ` (${arr.length}명)` : '-');
@@ -1173,6 +1186,15 @@ function scaled(img, maxEdge, q) {
   const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
   return c.toDataURL('image/jpeg', q);
 }
+async function prepDoc(file) {
+  const name = file.name || '파일';
+  if (!DOC_EXT.test(name)) throw new Error('「' + name + '」은 붙일 수 없는 형식입니다. 한글·워드·엑셀·파워포인트·PDF·텍스트·CSV·ZIP만 됩니다.');
+  if (file.size > 9e6) throw new Error('「' + name + '」이 너무 큽니다(9MB 이하).');
+  const url = await readAsDataURL(file);
+  let mime = /^image\//.test(file.type) ? '' : file.type;
+  if (/\.pdf$/i.test(name)) mime = 'application/pdf';
+  return { id: rid('f'), isNew: true, mime: mime || 'application/octet-stream', name: name, size: file.size, data: url.split(',')[1], thumb: '', doc: true };
+}
 async function prepFile(file) {
   const id = rid('f');
   const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
@@ -1201,12 +1223,13 @@ async function onPicked(e) {
   const list = Array.from(e.target.files || []);
   e.target.value = '';
   if (!f || !list.length) return;
-  const room = MAX_FILES - f.files.length;
-  if (list.length > room) toast('사진은 ' + MAX_FILES + '장까지라 ' + room + '장만 넣었습니다.');
+  const doc = e.target.id === 'pick-doc';
+  const room = doc ? MAX_DOCS - f.files.filter(isDocF).length : MAX_FILES - (f.kind === 'act' ? f.files.filter((x) => !isDocF(x)).length : f.files.length);
+  if (list.length > room) toast(doc ? '파일은 ' + MAX_DOCS + '개까지라 ' + room + '개만 넣었습니다.' : '사진은 ' + MAX_FILES + '장까지라 ' + room + '장만 넣었습니다.');
   busy(true);
   try {
     for (const file of list.slice(0, room)) {
-      try { f.files.push(await prepFile(file)); } catch (err) { toast(err.message, 3500); }
+      try { f.files.push(await (doc ? prepDoc(file) : prepFile(file))); } catch (err) { toast(err.message, 4000); }
       drawPhotos();
     }
   } finally { busy(false); }
@@ -1216,13 +1239,23 @@ const fq = (sel) => $(sel, (st.form && st.form.el) || document);
 function drawPhotos() {
   const f = st.form, box = fq('#photos');
   if (!f || !box) return;
+  const act = f.kind === 'act';
   const tiles = f.files.map((p, i) => {
+    if (act && isDocF(p)) return '';
     const bg = safeImg(p.thumb) ? `style="background-image:url('${safeImg(p.thumb)}')"` : '';
     return `<div class="ph" ${bg}>${p.pdf || p.mime === 'application/pdf' ? '<span class="pdf">PDF</span>' : (!p.thumb ? '<span class="pdf" style="color:var(--slate)">사진</span>' : '')}<button type="button" class="x" data-act="rmPhoto" data-i="${i}" aria-label="사진 빼기">×</button></div>`;
   });
-  if (f.files.length < MAX_FILES && f.kind === 'act') tiles.push(`<label class="ph-add" for="pick-file" data-pick role="button" tabindex="0">${ICON.image}<span>사진 추가</span></label>`);
+  const nPh = act ? f.files.filter((x) => !isDocF(x)).length : f.files.length;
+  if (nPh < MAX_FILES && act) tiles.push(`<label class="ph-add" for="pick-file" data-pick role="button" tabindex="0">${ICON.image}<span>사진 추가</span></label>`);
   box.innerHTML = tiles.join('');
-  const cnt = fq('#photo-count'); if (cnt) cnt.textContent = f.files.length + '/' + MAX_FILES;
+  const cnt = fq('#photo-count'); if (cnt) cnt.textContent = nPh + '/' + MAX_FILES;
+  const dbox = act && fq('#docs');
+  if (dbox) {
+    const docs = f.files.map((p, i) => [p, i]).filter(([p]) => isDocF(p));
+    dbox.innerHTML = docs.map(([p, i]) => `<div class="doc-row">${ICON.doc}<span class="doc-n">${esc(p.name || '파일')}</span><span class="doc-s">${p.size ? fmtSize(p.size) : ''}</span><button type="button" class="x" data-act="rmPhoto" data-i="${i}" aria-label="${esc(p.name || '파일')} 빼기">×</button></div>`).join('')
+      + (docs.length < MAX_DOCS ? `<label class="btn doc-add" for="pick-doc" data-pick role="button" tabindex="0">${ICON.plus}파일 첨부</label>` : '');
+    const dc = fq('#doc-count'); if (dc) dc.textContent = docs.length + '/' + MAX_DOCS;
+  }
 }
 
 /* ───── 활동 기록 입력(영수증은 이 안에 붙인다) ───── */
@@ -1278,6 +1311,7 @@ function openActForm(a, pre) {
     <div class="field"><label for="a-content">논의한 내용</label><textarea id="a-content" class="in" data-f="content" placeholder="무엇을 논의했고 무엇을 정했는지 적어 주세요.">${esc(f.content)}</textarea></div>
     <div class="field"><label for="a-next">다음에 할 일</label><textarea id="a-next" class="in" data-f="next" style="min-height:80px" placeholder="담당자와 기한이 있으면 같이 적어 주세요.">${esc(f.next)}</textarea></div>
     <div class="field"><span class="lbl">사진 <span id="photo-count" class="num" style="color:var(--mute);font-weight:500"></span></span><div class="photos" id="photos"></div><p class="hint">화이트보드, 회의 장면 등. 한 건에 4장까지.</p></div>
+    <div class="field"><span class="lbl">첨부 파일 <span id="doc-count" class="num" style="color:var(--mute);font-weight:500"></span></span><div id="docs"></div><p class="hint">발표 자료, 회의록, 결과물 등. 한글·워드·엑셀·파워포인트·PDF·텍스트·CSV·ZIP, 한 건에 4개, 파일당 9MB까지.</p></div>
     <div class="field"><span class="lbl">영수증 <span id="rcp-sum" class="num" style="color:var(--mute);font-weight:500"></span></span><div id="rcp-list"></div>
       <p class="hint">활동지원비를 썼다면 영수증을 여기에 붙여 주세요. 영수증이 여러 장이면 한 장씩 붙입니다.</p></div>
     <div class="field"><label for="a-writer">작성자</label><input id="a-writer" class="in" data-f="writer" list="writer-list" value="${esc(f.writer)}" placeholder="이름"><datalist id="writer-list">${members().map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>
@@ -1457,8 +1491,13 @@ async function dropSubRcp() {
 }
 
 /* ───── 상세 보기 ───── */
+function fileList(owner) {
+  const fs = filesOf(owner).filter(isDocF);
+  if (!fs.length) return '';
+  return `<div class="list doc-list">${fs.map((x) => `<button class="row doc-row" data-act="dlFile" data-id="${esc(x.id)}">${ICON.doc}<span class="doc-n">${esc(x.name || '파일')}</span><span class="doc-s">${x.size ? fmtSize(x.size) : ''}</span><b class="doc-dl">받기</b></button>`).join('')}</div>`;
+}
 function photoGrid(owner) {
-  const fs = filesOf(owner);
+  const fs = filesOf(owner).filter((x) => owner.indexOf('A:') !== 0 || !isDocF(x));
   if (!fs.length) return '';
   return `<div class="photos">${fs.map((x) => `<button class="ph" data-act="view" data-id="${esc(x.id)}" ${safeImg(x.thumb) ? `style="background-image:url('${safeImg(x.thumb)}')"` : ''} aria-label="사진 크게 보기">${x.mime === 'application/pdf' ? '<span class="pdf">PDF</span>' : ''}</button>`).join('')}</div>`;
 }
@@ -1497,7 +1536,8 @@ function actDetailHtml(a) {
     ${evOfAct(a) ? `<div class="block"><h3>일정</h3><button class="notice info" style="margin:0;width:100%" data-act="openEv" data-id="${esc(evOfAct(a).id)}">${ICON.cal}<span class="grow">${evLabel(evOfAct(a))}</span><b>보기</b></button></div>` : ''}
     ${a.content ? `<div class="block"><h3>논의한 내용</h3><div class="txt">${esc(a.content)}</div></div>` : ''}
     ${a.next ? `<div class="block"><h3>다음에 할 일</h3><div class="txt">${esc(a.next)}</div></div>` : ''}
-    ${filesOf('A:' + a.id).length ? `<div class="block"><h3>사진</h3>${photoGrid('A:' + a.id)}</div>` : ''}
+    ${filesOf('A:' + a.id).some((x) => !isDocF(x)) ? `<div class="block"><h3>사진</h3>${photoGrid('A:' + a.id)}</div>` : ''}
+    ${filesOf('A:' + a.id).some(isDocF) ? `<div class="block"><h3>첨부 파일</h3>${fileList('A:' + a.id)}</div>` : ''}
     ${rcs.length ? `<div class="block" id="d-rcps"><h3>영수증 ${rcs.length}건, ${won(sum(rcs.map((r) => r.amount)))}</h3>${rcs.map((r) => rcpCard(r, a)).join('')}</div>` : ''}
     <p class="hint" style="margin-top:16px;color:var(--mute);font-size:12px">작성 ${esc(a.created || '')}${a.updated && a.updated !== a.created ? ', 수정 ' + esc(a.updated) : ''}</p>
   </div>
@@ -2140,6 +2180,16 @@ const ACT = {
   clearDraft: async () => { const e = evs().find((x) => x.id === (st.form || {}).evId); lsSet(LS.dAct, null); await closeSheet(); if (e) openActForm(null, evPre(e)); },
   saveAct: () => saveAct(),
   view: (el) => viewPhoto(el.dataset.id),
+  dlFile: async (el) => {
+    const x = D().files.find((y) => y.id === el.dataset.id);
+    if (!x) return;
+    el.disabled = true; busy(true);
+    try {
+      const url = await getFull(x.id);
+      const a = document.createElement('a'); a.href = url; a.download = x.name || '파일'; document.body.appendChild(a); a.click(); a.remove();
+      toast('「' + (x.name || '파일') + '」을 받았습니다');
+    } catch (e) { toast(e.message, 4000); } finally { busy(false); el.disabled = false; }
+  },
   closeViewer: () => { if (history.state && history.state.viewer) history.back(); else { const v = $('#viewer'); if (v) v.remove(); } },
   saveMembers: async (el) => {
     const v = $('#members-in').value;
@@ -2295,7 +2345,9 @@ const ACT = {
 document.addEventListener('click', (e) => {
   const lab = e.target.closest('label[data-pick]');
   if (lab) {
-    if (!st.form || st.form.files.length >= MAX_FILES) { e.preventDefault(); toast('사진은 한 건에 ' + MAX_FILES + '장까지 올릴 수 있습니다.'); }
+    const f = st.form, doc = lab.getAttribute('for') === 'pick-doc';
+    const n = !f ? 0 : doc ? f.files.filter(isDocF).length : f.kind === 'act' ? f.files.filter((x) => !isDocF(x)).length : f.files.length;
+    if (!f || n >= (doc ? MAX_DOCS : MAX_FILES)) { e.preventDefault(); toast(doc ? '파일은 한 건에 ' + MAX_DOCS + '개까지 붙일 수 있습니다.' : '사진은 한 건에 ' + MAX_FILES + '장까지 올릴 수 있습니다.'); }
     return;
   }
   const el = e.target.closest('[data-act]');
@@ -2335,6 +2387,7 @@ document.addEventListener('keydown', (e) => {
 });
 $('#pick-cam').addEventListener('change', onPicked);
 $('#pick-file').addEventListener('change', onPicked);
+$('#pick-doc').addEventListener('change', onPicked);
 
 /* ───────── 시작 ───────── */
 function boot() {

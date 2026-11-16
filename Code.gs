@@ -17,7 +17,7 @@
  * 코드를 고친 뒤에는 [배포 → 배포 관리 → 편집(연필) → 버전: 새 버전 → 배포]를 해야 반영된다(URL은 그대로).
  */
 
-var VERSION = '2026-11-06.1';
+var VERSION = '2026-11-16.1';
 var TZ = 'Asia/Seoul';
 var DEFAULT_BUDGET = 1000000;
 var DEFAULT_TEAMS = [
@@ -36,6 +36,8 @@ var MAX_THUMB = 45000;                 // 시트 셀 한도 50,000자
 var FAIL_LIMIT = 20;                   // 10분 안에 20번 틀리면
 var FAIL_WINDOW = 600;                 // 10분 잠금
 var OK_MIME = /^(image\/(jpeg|png|webp|gif|heic|heif)|application\/pdf)$/;
+var DOC_EXT = /\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|txt|csv|zip)$/i; // 활동 기록에 붙이는 일반 파일(영수증은 사진·PDF만)
+var MAX_DOCS = 4;
 var APP_URL = 'https://kuhedu.github.io/aifrontier/';
 var NOTIFY_EVERY = 5;                  // 분마다 변경이력을 본다(시간 트리거)
 var NOTIFY_QUIET = 2 * 60 * 1000;      // 마지막 저장 뒤 2분 조용해지면 보낸다(활동과 영수증을 한 통으로)
@@ -735,18 +737,28 @@ function checkFiles_(owner, newFiles, removeIds) {
   newFiles = Array.isArray(newFiles) ? newFiles : [];
   removeIds = (Array.isArray(removeIds) ? removeIds : []).map(String);
   var all = readAll_('file');
-  var keep = live_(all).filter(function (f) { return f.owner === owner && removeIds.indexOf(f.id) < 0; }).length;
+  var actOwner = owner.indexOf('A:') === 0;
+  var keeps = live_(all).filter(function (f) { return f.owner === owner && removeIds.indexOf(f.id) < 0; });
   var add = [];
   newFiles.forEach(function (nf) {
     var fid = cleanId_(nf.id, 'f');
     if (find_(all, fid)) return; // 재시도로 다시 온 파일(이미 저장됨)
     var mime = String(nf.mime || '');
-    if (!OK_MIME.test(mime)) throw appErr_('bad_file', '사진(JPG·PNG 등) 또는 PDF만 올릴 수 있습니다.');
+    var name = String(nf.name || '').replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '_').trim().slice(-120);
+    var doc = actOwner && !/^image\//.test(mime); // 활동 기록: 사진이 아니면 일반 파일
+    if (doc) {
+      if (!DOC_EXT.test(name)) throw appErr_('bad_file', '한글·워드·엑셀·파워포인트·PDF·텍스트·CSV·ZIP 파일만 붙일 수 있습니다.');
+      if (!/^[\w.+-]+\/[\w.+-]+$/.test(mime) || mime.length > 120) mime = 'application/octet-stream';
+    } else if (!OK_MIME.test(mime)) throw appErr_('bad_file', '사진(JPG·PNG 등) 또는 PDF만 올릴 수 있습니다.');
     var data = String(nf.data || '');
     if (!data || data.length > MAX_FILE_B64) throw appErr_('too_big', '파일이 너무 큽니다(9MB 이하).');
-    add.push({ id: fid, mime: mime, data: data, thumb: String(nf.thumb || '') });
+    add.push({ id: fid, mime: mime, data: data, thumb: doc ? '' : String(nf.thumb || ''), doc: doc, name: name });
   });
-  if (keep + add.length > MAX_FILES) throw appErr_('too_many', '사진·파일은 한 건에 ' + MAX_FILES + '개까지 올릴 수 있습니다.');
+  if (actOwner) {
+    var isImg = function (f) { return /^image\//.test(f.mime); };
+    if (keeps.filter(isImg).length + add.filter(function (f) { return !f.doc; }).length > MAX_FILES) throw appErr_('too_many', '사진은 한 건에 ' + MAX_FILES + '장까지 올릴 수 있습니다.');
+    if (keeps.filter(function (f) { return !isImg(f); }).length + add.filter(function (f) { return f.doc; }).length > MAX_DOCS) throw appErr_('too_many', '파일은 한 건에 ' + MAX_DOCS + '개까지 붙일 수 있습니다.');
+  } else if (keeps.length + add.length > MAX_FILES) throw appErr_('too_many', '사진·파일은 한 건에 ' + MAX_FILES + '개까지 올릴 수 있습니다.');
   return { add: add, remove: removeIds };
 }
 
@@ -760,8 +772,8 @@ function applyFiles_(tid, owner, plan) {
   });
   plan.add.forEach(function (nf) {
     var bytes = Utilities.base64Decode(nf.data);
-    var name = fileName_(owner, nf.id, nf.mime);
-    var file = folder_(tid).createFile(Utilities.newBlob(bytes, nf.mime, name));
+    var name = nf.doc ? (nf.name || '파일') : fileName_(owner, nf.id, nf.mime); // 일반 파일은 올린 이름 그대로 보여 준다
+    var file = folder_(tid).createFile(Utilities.newBlob(bytes, nf.mime, nf.doc ? '활동_' + owner.slice(2) + '_' + nf.id.slice(-4) + '_' + name : name));
     var thumb = nf.thumb;
     if (thumb.length > MAX_THUMB || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(thumb)) thumb = '';
     writeRow_('file', { id: nf.id, team: tid, owner: owner, driveId: file.getId(), name: name, mime: nf.mime,
